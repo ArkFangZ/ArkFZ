@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>寻机头小游戏</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        airplane: {
+                            head: '#EF4444', 
+                            body: '#3B82F6', 
+                        }
+                    },
+                    animation: {
+                        'pop': 'pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                        'bounce-short': 'bounceShort 0.5s ease duration-1',
+                    },
+                    keyframes: {
+                        pop: {
+                            '0%': { transform: 'scale(0.8)', opacity: '0.5' },
+                            '100%': { transform: 'scale(1)', opacity: '1' },
+                        },
+                        bounceShort: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-8px)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .grid-cell {
+            aspect-ratio: 1 / 1;
+            transition: all 0.15s ease-in-out;
+        }
+        .grid-cell:hover:not(.revealed) {
+            transform: scale(1.06);
+            filter: brightness(1.12);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 sm:p-6 md:p-8">
+
+    <!-- Top Navigation Header -->
+    <header class="w-full max-w-4xl flex items-center justify-between mb-4 sm:mb-6">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                <i class="fa-solid fa-plane text-white text-xl sm:text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-800 dark:from-white dark:via-slate-200 dark:to-slate-400">
+                    寻机头小游戏
+                </h1>
+                <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">10×10 棋盘寻找 2 架互不相邻的飞机</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2">
+            <!-- Theme Toggle Button -->
+            <button id="themeToggleBtn" title="切换深色/浅色模式" class="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-amber-400 rounded-xl transition border border-slate-300 dark:border-slate-700">
+                <i id="themeIcon" class="fa-solid fa-moon text-lg"></i>
+            </button>
+            
+            <!-- Help Modal Button -->
+            <button id="helpBtn" class="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs sm:text-sm font-semibold transition border border-slate-300 dark:border-slate-700">
+                <i class="fa-solid fa-circle-question text-blue-500 text-base"></i>
+                <span class="hidden sm:inline">游戏规则</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Layout -->
+    <main class="w-full max-w-4xl flex flex-col md:flex-row gap-6 items-center md:items-start justify-center my-auto">
+        
+        <!-- Left Panel: Stats & Controls -->
+        <div class="w-full md:w-72 flex flex-col gap-4">
+            <!-- Stats Container -->
+            <div class="bg-white/90 dark:bg-slate-800/80 backdrop-blur border border-slate-200 dark:border-slate-700/60 rounded-2xl p-5 shadow-xl transition-colors">
+                <h2 class="text-xs uppercase tracking-wider font-bold text-slate-400 dark:text-slate-400 mb-4">游戏统计</h2>
+                
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-slate-100 dark:bg-slate-900/80 p-3 rounded-xl border border-slate-200 dark:border-slate-700/40 flex flex-col items-center">
+                        <span class="text-xs text-slate-500 dark:text-slate-400 mb-1">总步数</span>
+                        <span id="clickCount" class="text-2xl sm:text-3xl font-extrabold text-blue-600 dark:text-blue-400">0</span>
+                    </div>
+                    <div class="bg-slate-100 dark:bg-slate-900/80 p-3 rounded-xl border border-slate-200 dark:border-slate-700/40 flex flex-col items-center">
+                        <span class="text-xs text-slate-500 dark:text-slate-400 mb-1">已找到机头</span>
+                        <div class="flex items-baseline gap-1">
+                            <span id="headsFound" class="text-2xl sm:text-3xl font-extrabold text-red-500">0</span>
+                            <span class="text-sm font-semibold text-slate-400 dark:text-slate-500">/ 2</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Airplanes Status -->
+                <div class="space-y-2 mb-4">
+                    <div id="targetPlane1" class="flex items-center justify-between p-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700/30 text-xs">
+                        <span class="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                            <i class="fa-solid fa-plane text-slate-400 dark:text-slate-500" id="planeIcon1"></i>
+                            1 号飞机
+                        </span>
+                        <span id="statusPlane1" class="font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded text-[10px]">潜伏中</span>
+                    </div>
+                    <div id="targetPlane2" class="flex items-center justify-between p-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700/30 text-xs">
+                        <span class="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                            <i class="fa-solid fa-plane text-slate-400 dark:text-slate-500" id="planeIcon2"></i>
+                            2 号飞机
+                        </span>
+                        <span id="statusPlane2" class="font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded text-[10px]">潜伏中</span>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="space-y-2">
+                    <button id="restartBtn" class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 transition duration-200 active:scale-95 flex items-center justify-center gap-2 text-sm">
+                        <i class="fa-solid fa-rotate-right"></i>
+                        重新开始
+                    </button>
+                    <button id="revealBtn" class="w-full py-2.5 px-4 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-semibold rounded-xl transition duration-200 text-xs flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-600">
+                        <i class="fa-solid fa-eye"></i>
+                        显示答案
+                    </button>
+                </div>
+            </div>
+
+            <!-- Legend Info -->
+            <div class="bg-white/90 dark:bg-slate-800/80 backdrop-blur border border-slate-200 dark:border-slate-700/60 rounded-2xl p-4 shadow-xl transition-colors">
+                <h3 class="text-xs uppercase tracking-wider font-bold text-slate-400 dark:text-slate-400 mb-3">图例说明</h3>
+                <div class="grid grid-cols-2 gap-2.5 text-xs">
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 rounded bg-red-500 flex items-center justify-center text-[8px] text-white font-bold"><i class="fa-solid fa-crosshairs"></i></div>
+                        <span class="text-slate-700 dark:text-slate-300">机头 (红色)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 rounded bg-blue-500"></div>
+                        <span class="text-slate-700 dark:text-slate-300">机身 (蓝色)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 rounded bg-slate-100 dark:bg-slate-100 border border-slate-300"></div>
+                        <span class="text-slate-700 dark:text-slate-300">未命中 (白色)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 rounded bg-slate-400 dark:bg-slate-600"></div>
+                        <span class="text-slate-700 dark:text-slate-300">未翻开 (灰色)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: 10x10 Grid Board -->
+        <div class="flex-1 flex justify-center items-center w-full max-w-[480px]">
+            <div class="bg-slate-200 dark:bg-slate-800 p-3 sm:p-4 rounded-2xl border border-slate-300 dark:border-slate-700 shadow-2xl w-full transition-colors">
+                <div id="gameBoard" class="grid grid-cols-10 gap-1 sm:gap-1.5 w-full aspect-square">
+                    <!-- 100 Cells dynamically constructed in JS -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full max-w-4xl text-center text-xs text-slate-400 dark:text-slate-500 mt-6">
+        经典益智棋盘游戏 • 10×10 寻机头
+    </footer>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl relative animate-pop text-slate-800 dark:text-slate-100">
+            <button id="closeHelpBtn" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-xl font-bold mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-plane text-blue-500"></i>
+                游戏规则说明
+            </h3>
+            <p class="text-xs text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
+                棋盘中随机隐藏着 <strong>2 架飞机</strong>，方向可旋转。<strong>两架飞机不可重叠，也不可相邻（包括斜向接触）</strong>。点击灰色格子：
+                <br>• 点中机头：显示<strong class="text-red-500">红色</strong>
+                <br>• 点中机身：显示<strong class="text-blue-500">蓝色</strong>
+                <br>• 没点中任何部位：显示<strong>白色</strong>
+                <br>击中所有 2 个机头即可获得胜利！
+            </p>
+            
+            <!-- Shape Diagram -->
+            <div class="bg-slate-100 dark:bg-slate-900/90 rounded-xl p-4 border border-slate-200 dark:border-slate-700/50 mb-4 flex flex-col items-center">
+                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2">飞机造型结构（共 10 格）</span>
+                <div class="grid grid-cols-5 gap-1 w-36">
+                    <div></div><div></div><div class="aspect-square bg-red-500 rounded flex items-center justify-center text-[10px] text-white font-bold"><i class="fa-solid fa-crosshairs"></i></div><div></div><div></div>
+                    <div class="aspect-square bg-blue-500 rounded"></div><div class="aspect-square bg-blue-500 rounded"></div><div class="aspect-square bg-blue-500 rounded"></div><div class="aspect-square bg-blue-500 rounded"></div><div class="aspect-square bg-blue-500 rounded"></div>
+                    <div></div><div></div><div class="aspect-square bg-blue-500 rounded"></div><div></div><div></div>
+                    <div></div><div class="aspect-square bg-blue-500 rounded"></div><div class="aspect-square bg-blue-500 rounded"></div><div class="aspect-square bg-blue-500 rounded"></div><div></div>
+                </div>
+            </div>
+
+            <button id="gotItBtn" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-sm transition">
+                明白，开始游戏！
+            </button>
+        </div>
+    </div>
+
+    <!-- Victory Modal (No Accuracy Rate display) -->
+    <div id="victoryModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl animate-pop text-slate-800 dark:text-slate-100">
+            <div class="w-16 h-16 bg-emerald-500/20 border border-emerald-500/40 text-emerald-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 animate-bounce-short">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <h3 class="text-2xl font-extrabold mb-1">大获全胜！</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-5">恭喜你成功打掉两架飞机的机头！</p>
+            
+            <div class="bg-slate-100 dark:bg-slate-900/80 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 mb-6 flex justify-center items-center">
+                <div class="text-center">
+                    <span class="block text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">总步数</span>
+                    <span id="finalClicks" class="text-3xl font-black text-blue-600 dark:text-blue-400">0</span>
+                </div>
+            </div>
+
+            <button id="playAgainBtn" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm shadow-lg shadow-emerald-600/30 transition">
+                再玩一局
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Constants & Configuration
+        const BOARD_SIZE = 10;
+        const TOTAL_AIRPLANES = 2;
+
+        // Upward airplane shape (0 deg) relative to head (0,0)
+        const BASE_AIRPLANE_SHAPE = [
+            { dx: 0, dy: 0, isHead: true },
+            { dx: -2, dy: 1, isHead: false },
+            { dx: -1, dy: 1, isHead: false },
+            { dx: 0, dy: 1, isHead: false },
+            { dx: 1, dy: 1, isHead: false },
+            { dx: 2, dy: 1, isHead: false },
+            { dx: 0, dy: 2, isHead: false },
+            { dx: -1, dy: 3, isHead: false },
+            { dx: 0, dy: 3, isHead: false },
+            { dx: 1, dy: 3, isHead: false }
+        ];
+
+        // State variables
+        let boardState = [];
+        let airplanes = [];
+        let clickCount = 0;
+        let headsFound = 0;
+        let isGameOver = false;
+
+        // Audio Context setup
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+        }
+
+        function playTone(freq, type, duration, gainVal = 0.1) {
+            try {
+                if (!audioCtx) return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
+
+        function playSound(type) {
+            initAudio();
+            if (type === 'miss') playTone(220, 'sine', 0.12, 0.05);
+            else if (type === 'hit') playTone(440, 'triangle', 0.18, 0.12);
+            else if (type === 'head') {
+                playTone(587, 'square', 0.1, 0.15);
+                setTimeout(() => playTone(880, 'square', 0.2, 0.15), 70);
+            } else if (type === 'win') {
+                [392, 523, 659, 784].forEach((f, idx) => {
+                    setTimeout(() => playTone(f, 'triangle', 0.2, 0.15), idx * 90);
+                });
+            }
+        }
+
+        // Shape rotation transformation
+        function getRotatedShape(rotation) {
+            return BASE_AIRPLANE_SHAPE.map(b => {
+                let rx = b.dx, ry = b.dy;
+                if (rotation === 1) { // 90 deg clockwise
+                    rx = -b.dy;
+                    ry = b.dx;
+                } else if (rotation === 2) { // 180 deg
+                    rx = -b.dx;
+                    ry = -b.dy;
+                } else if (rotation === 3) { // 270 deg
+                    rx = b.dy;
+                    ry = -b.dx;
+                }
+                return { dx: rx, dy: ry, isHead: b.isHead };
+            });
+        }
+
+        // Theme Mode Logic
+        function initTheme() {
+            const themeToggleBtn = document.getElementById('themeToggleBtn');
+            const themeIcon = document.getElementById('themeIcon');
+
+            // Default to Dark Mode or load saved
+            const savedTheme = localStorage.getItem('airplane_game_theme') || 'dark';
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+                themeIcon.className = 'fa-solid fa-sun text-lg text-amber-400';
+            } else {
+                document.documentElement.classList.remove('dark');
+                themeIcon.className = 'fa-solid fa-moon text-lg text-slate-700';
+            }
+
+            themeToggleBtn.addEventListener('click', () => {
+                const isDark = document.documentElement.classList.toggle('dark');
+                localStorage.setItem('airplane_game_theme', isDark ? 'dark' : 'light');
+                themeIcon.className = isDark ? 'fa-solid fa-sun text-lg text-amber-400' : 'fa-solid fa-moon text-lg text-slate-700';
+            });
+        }
+
+        // Initialize 10x10 Matrix State
+        function initBoardState() {
+            boardState = [];
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                const row = [];
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    row.push({
+                        row: r,
+                        col: c,
+                        hasAirplane: false,
+                        isHead: false,
+                        planeId: null,
+                        revealed: false
+                    });
+                }
+                boardState.push(row);
+            }
+        }
+
+        // Place Airplanes strictly without overlap and without 8-neighbor adjacency
+        function placeAirplanes(count) {
+            let globalAttempts = 0;
+
+            while (globalAttempts < 1000) {
+                globalAttempts++;
+                initBoardState();
+                
+                let placed = [];
+                let allPlaced = true;
+
+                for (let i = 0; i < count; i++) {
+                    let attempts = 0;
+                    let success = false;
+
+                    while (attempts < 400 && !success) {
+                        attempts++;
+                        const rotation = Math.floor(Math.random() * 4);
+                        const shape = getRotatedShape(rotation);
+
+                        const hx = Math.floor(Math.random() * BOARD_SIZE);
+                        const hy = Math.floor(Math.random() * BOARD_SIZE);
+
+                        let validPlacement = true;
+                        const planeBlocks = [];
+
+                        for (const block of shape) {
+                            const targetX = hx + block.dx;
+                            const targetY = hy + block.dy;
+
+                            // Out of bounds check
+                            if (targetX < 0 || targetX >= BOARD_SIZE || targetY < 0 || targetY >= BOARD_SIZE) {
+                                validPlacement = false;
+                                break;
+                            }
+
+                            // Non-adjacency rule (Check 8-neighbor touch)
+                            for (let dx = -1; dx <= 1; dx++) {
+                                for (let dy = -1; dy <= 1; dy++) {
+                                    const nx = targetX + dx;
+                                    const ny = targetY + dy;
+                                    if (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE) {
+                                        if (boardState[ny][nx].hasAirplane) {
+                                            validPlacement = false;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (!validPlacement) break;
+                            }
+
+                            if (!validPlacement) break;
+                            planeBlocks.push({ x: targetX, y: targetY, isHead: block.isHead });
+                        }
+
+                        if (validPlacement) {
+                            planeBlocks.forEach(b => {
+                                boardState[b.y][b.x].hasAirplane = true;
+                                boardState[b.y][b.x].isHead = b.isHead;
+                                boardState[b.y][b.x].planeId = i + 1;
+                            });
+
+                            placed.push({ id: i + 1, blocks: planeBlocks });
+                            success = true;
+                        }
+                    }
+
+                    if (!success) {
+                        allPlaced = false;
+                        break;
+                    }
+                }
+
+                if (allPlaced && placed.length === count) {
+                    return placed;
+                }
+            }
+            return [];
+        }
+
+        // Render UI Board
+        function renderBoard() {
+            const boardEl = document.getElementById('gameBoard');
+            boardEl.innerHTML = '';
+
+            // Note: Unrevealed cells in Light Mode are styled with darker slate-400 (or bg-slate-400) for distinct contrast
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const cell = document.createElement('button');
+                    cell.id = `cell-${r}-${c}`;
+                    cell.className = `grid-cell bg-slate-400 dark:bg-slate-600 border border-slate-500/30 dark:border-slate-700/60 rounded-lg flex items-center justify-center font-bold text-white shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400`;
+                    
+                    cell.addEventListener('click', () => handleCellClick(r, c));
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        // Handle Cell Click Event
+        function handleCellClick(r, c) {
+            if (isGameOver) return;
+            
+            const cellState = boardState[r][c];
+            if (cellState.revealed) return;
+
+            cellState.revealed = true;
+            clickCount++;
+            document.getElementById('clickCount').textContent = clickCount;
+
+            const cellEl = document.getElementById(`cell-${r}-${c}`);
+            cellEl.classList.add('revealed', 'animate-pop');
+
+            if (cellState.hasAirplane) {
+                if (cellState.isHead) {
+                    // HIT HEAD (Red)
+                    cellEl.className = `grid-cell bg-red-500 border border-red-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg animate-pop`;
+                    cellEl.innerHTML = `<i class="fa-solid fa-crosshairs text-xs sm:text-base animate-bounce-short"></i>`;
+                    playSound('head');
+
+                    headsFound++;
+                    document.getElementById('headsFound').textContent = headsFound;
+
+                    const planeId = cellState.planeId;
+                    const statusEl = document.getElementById(`statusPlane${planeId}`);
+                    const iconEl = document.getElementById(`planeIcon${planeId}`);
+                    statusEl.textContent = '已摧毁';
+                    statusEl.className = 'font-bold text-red-500 dark:text-red-400 bg-red-500/10 px-2 py-0.5 rounded text-[10px]';
+                    iconEl.className = 'fa-solid fa-plane text-red-500';
+
+                    if (headsFound === TOTAL_AIRPLANES) {
+                        handleVictory();
+                    }
+                } else {
+                    // HIT BODY (Blue)
+                    cellEl.className = `grid-cell bg-blue-500 border border-blue-600 rounded-lg flex items-center justify-center text-white shadow-md animate-pop`;
+                    cellEl.innerHTML = `<i class="fa-solid fa-circle text-[6px] sm:text-[8px] opacity-70"></i>`;
+                    playSound('hit');
+                }
+            } else {
+                // MISS (White)
+                cellEl.className = `grid-cell bg-white dark:bg-slate-100 border border-slate-300 dark:border-slate-300 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500 shadow-inner animate-pop`;
+                cellEl.innerHTML = `<i class="fa-solid fa-xmark text-xs opacity-50"></i>`;
+                playSound('miss');
+            }
+        }
+
+        // Reveal Whole Answer
+        function revealSolution() {
+            if (isGameOver && headsFound === TOTAL_AIRPLANES) return;
+
+            isGameOver = true;
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const cellState = boardState[r][c];
+                    const cellEl = document.getElementById(`cell-${r}-${c}`);
+
+                    if (!cellState.revealed) {
+                        cellState.revealed = true;
+                        if (cellState.hasAirplane) {
+                            if (cellState.isHead) {
+                                cellEl.className = `grid-cell bg-red-500/80 border border-red-600 rounded-lg flex items-center justify-center text-white opacity-90`;
+                                cellEl.innerHTML = `<i class="fa-solid fa-crosshairs text-xs sm:text-base"></i>`;
+                            } else {
+                                cellEl.className = `grid-cell bg-blue-500/80 border border-blue-600 rounded-lg flex items-center justify-center text-white opacity-90`;
+                                cellEl.innerHTML = `<i class="fa-solid fa-circle text-[6px] sm:text-[8px] opacity-70"></i>`;
+                            }
+                        } else {
+                            cellEl.className = `grid-cell bg-slate-200/50 dark:bg-slate-800/40 border border-slate-300/40 dark:border-slate-700 rounded-lg flex items-center justify-center text-slate-400/50 dark:text-slate-600 opacity-40`;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Handle Victory Sequence
+        function handleVictory() {
+            isGameOver = true;
+            playSound('win');
+            
+            setTimeout(() => {
+                revealSolution();
+                document.getElementById('finalClicks').textContent = clickCount;
+                document.getElementById('victoryModal').classList.remove('hidden');
+            }, 350);
+        }
+
+        // Initialize / Reset Entire Game
+        function initGame() {
+            clickCount = 0;
+            headsFound = 0;
+            isGameOver = false;
+
+            document.getElementById('clickCount').textContent = '0';
+            document.getElementById('headsFound').textContent = '0';
+
+            // Reset Airplane badging
+            for (let i = 1; i <= TOTAL_AIRPLANES; i++) {
+                const statusEl = document.getElementById(`statusPlane${i}`);
+                const iconEl = document.getElementById(`planeIcon${i}`);
+                statusEl.textContent = '潜伏中';
+                statusEl.className = 'font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded text-[10px]';
+                iconEl.className = 'fa-solid fa-plane text-slate-400 dark:text-slate-500';
+            }
+
+            airplanes = placeAirplanes(TOTAL_AIRPLANES);
+            renderBoard();
+        }
+
+        // Event Handler Bindings
+        document.getElementById('restartBtn').addEventListener('click', initGame);
+        document.getElementById('revealBtn').addEventListener('click', revealSolution);
+        document.getElementById('helpBtn').addEventListener('click', () => {
+            document.getElementById('helpModal').classList.remove('hidden');
+        });
+        document.getElementById('closeHelpBtn').addEventListener('click', () => {
+            document.getElementById('helpModal').classList.add('hidden');
+        });
+        document.getElementById('gotItBtn').addEventListener('click', () => {
+            document.getElementById('helpModal').classList.add('hidden');
+        });
+        document.getElementById('playAgainBtn').addEventListener('click', () => {
+            document.getElementById('victoryModal').classList.add('hidden');
+            initGame();
+        });
+
+        // Window Startup
+        window.onload = () => {
+            initTheme();
+            initGame();
+        };
+    </script>
+</body>
+</html>
+```
+
+### 主要更新点说明：
+1. **浅色模式未翻开格子调深**：浅色模式下未点击的灰色格子从较浅的灰白色调整为了更具对比度的中灰色（`bg-slate-400`），保证玩家能够清晰分辨棋盘边界与未点击状态。
+2. **主题切换体验**：包含浅色/深色模式平滑过渡，并在 `localStorage` 中持久化记录主题喜好。
+3. **保持原有规则与约束**：
+   - 包含严格的 8-方向（包括斜角）两机不相邻逻辑；
+   - 结算弹窗**隐藏命中率**，仅保留总步数；
+   - 全中文界面与细腻的触感音效。
