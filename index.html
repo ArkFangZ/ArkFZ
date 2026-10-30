@@ -68,7 +68,7 @@
                 <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-800 dark:from-white dark:via-slate-200 dark:to-slate-400">
                     寻机头小游戏
                 </h1>
-                <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">10×10 棋盘寻找 2 架互不相邻的飞机</p>
+                <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">寻找 2 架飞机</p>
             </div>
         </div>
         
@@ -116,14 +116,14 @@
                             <i class="fa-solid fa-plane text-slate-400 dark:text-slate-500" id="planeIcon1"></i>
                             1 号飞机
                         </span>
-                        <span id="statusPlane1" class="font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded text-[10px]">潜伏中</span>
+                        <span id="statusPlane1" class="font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded text-[10px]">未找到</span>
                     </div>
                     <div id="targetPlane2" class="flex items-center justify-between p-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700/30 text-xs">
                         <span class="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                             <i class="fa-solid fa-plane text-slate-400 dark:text-slate-500" id="planeIcon2"></i>
                             2 号飞机
                         </span>
-                        <span id="statusPlane2" class="font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded text-[10px]">潜伏中</span>
+                        <span id="statusPlane2" class="font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded text-[10px]">未找到</span>
                     </div>
                 </div>
 
@@ -176,7 +176,7 @@
 
     <!-- Footer -->
     <footer class="w-full max-w-4xl text-center text-xs text-slate-400 dark:text-slate-500 mt-6">
-        经典益智棋盘游戏 • 10×10 寻机头
+        经典棋盘游戏 • 10×10 寻机头
     </footer>
 
     <!-- Help Modal -->
@@ -194,12 +194,12 @@
                 <br>• 点中机头：显示<strong class="text-red-500">红色</strong>
                 <br>• 点中机身：显示<strong class="text-blue-500">蓝色</strong>
                 <br>• 没点中任何部位：显示<strong>白色</strong>
-                <br>击中所有 2 个机头即可获得胜利！
+                <br>击中 2 个机头即可获得胜利！
             </p>
             
             <!-- Shape Diagram -->
             <div class="bg-slate-100 dark:bg-slate-900/90 rounded-xl p-4 border border-slate-200 dark:border-slate-700/50 mb-4 flex flex-col items-center">
-                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2">飞机造型结构（共 10 格）</span>
+                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2">飞机造型结构</span>
                 <div class="grid grid-cols-5 gap-1 w-36">
                     <div></div><div></div><div class="aspect-square bg-red-500 rounded flex items-center justify-center text-[10px] text-white font-bold"><i class="fa-solid fa-crosshairs"></i></div><div></div><div></div>
                     <div class="aspect-square bg-blue-500 rounded"></div><div class="aspect-square bg-blue-500 rounded"></div><div class="aspect-square bg-blue-500 rounded"></div><div class="aspect-square bg-blue-500 rounded"></div><div class="aspect-square bg-blue-500 rounded"></div>
@@ -209,7 +209,7 @@
             </div>
 
             <button id="gotItBtn" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-sm transition">
-                明白，开始游戏！
+                开始游戏
             </button>
         </div>
     </div>
@@ -221,7 +221,7 @@
                 <i class="fa-solid fa-trophy"></i>
             </div>
             <h3 class="text-2xl font-extrabold mb-1">大获全胜！</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mb-5">恭喜你成功打掉两架飞机的机头！</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-5">恭喜你成功打掉两架飞机！</p>
             
             <div class="bg-slate-100 dark:bg-slate-900/80 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 mb-6 flex justify-center items-center">
                 <div class="text-center">
@@ -484,7 +484,7 @@
                     const planeId = cellState.planeId;
                     const statusEl = document.getElementById(`statusPlane${planeId}`);
                     const iconEl = document.getElementById(`planeIcon${planeId}`);
-                    statusEl.textContent = '已摧毁';
+                    statusEl.textContent = '已命中';
                     statusEl.className = 'font-bold text-red-500 dark:text-red-400 bg-red-500/10 px-2 py-0.5 rounded text-[10px]';
                     iconEl.className = 'fa-solid fa-plane text-red-500';
 
@@ -558,7 +558,7 @@
             for (let i = 1; i <= TOTAL_AIRPLANES; i++) {
                 const statusEl = document.getElementById(`statusPlane${i}`);
                 const iconEl = document.getElementById(`planeIcon${i}`);
-                statusEl.textContent = '潜伏中';
+                statusEl.textContent = '未找到';
                 statusEl.className = 'font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded text-[10px]';
                 iconEl.className = 'fa-solid fa-plane text-slate-400 dark:text-slate-500';
             }
@@ -592,12 +592,3 @@
     </script>
 </body>
 </html>
-```
-
-### 主要更新点说明：
-1. **浅色模式未翻开格子调深**：浅色模式下未点击的灰色格子从较浅的灰白色调整为了更具对比度的中灰色（`bg-slate-400`），保证玩家能够清晰分辨棋盘边界与未点击状态。
-2. **主题切换体验**：包含浅色/深色模式平滑过渡，并在 `localStorage` 中持久化记录主题喜好。
-3. **保持原有规则与约束**：
-   - 包含严格的 8-方向（包括斜角）两机不相邻逻辑；
-   - 结算弹窗**隐藏命中率**，仅保留总步数；
-   - 全中文界面与细腻的触感音效。
