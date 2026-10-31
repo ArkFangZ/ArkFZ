@@ -152,17 +152,17 @@
   <div class="player-info" id="p1-card">
     <div class="p1-text">玩家</div>
     <div>金币: <span id="p1-coins">30</span></div>
-    <div>地毯: <span id="p1-carpets">10</span></div>
+    <div>地毯: <span id="p1-carpets">15</span></div>
   </div>
   <div class="player-info" id="p2-card">
     <div class="p2-text">AI 1</div>
     <div>金币: <span id="p2-coins">30</span></div>
-    <div>地毯: <span id="p2-carpets">10</span></div>
+    <div>地毯: <span id="p2-carpets">15</span></div>
   </div>
   <div class="player-info" id="p3-card">
     <div class="p3-text">AI 2</div>
     <div>金币: <span id="p3-coins">30</span></div>
-    <div>地毯: <span id="p3-carpets">10</span></div>
+    <div>地毯: <span id="p3-carpets">15</span></div>
   </div>
 </div>
 
@@ -197,9 +197,9 @@ const DIR_VECTORS = [{x:0, y:1}, {x:1, y:0}, {x:0, y:-1}, {x:-1, y:0}];
 const DIR_SYMBOLS = ['↑', '→', '↓', '←'];
 
 let players = {
-  p1: { coins: 30, carpets: 10, name: '玩家', color: 'p1' },
-  p2: { coins: 30, carpets: 10, name: 'AI 1', color: 'p2' },
-  p3: { coins: 30, carpets: 10, name: 'AI 2', color: 'p3' }
+  p1: { coins: 30, carpets: 15, name: '玩家', color: 'p1' },
+  p2: { coins: 30, carpets: 15, name: 'AI 1', color: 'p2' },
+  p3: { coins: 30, carpets: 15, name: 'AI 2', color: 'p3' }
 };
 const playerKeys = ['p1', 'p2', 'p3'];
 let currentPlayerIndex = 0;
