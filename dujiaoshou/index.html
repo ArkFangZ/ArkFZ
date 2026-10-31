@@ -4,16 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商业独角兽</title>
-<!-- 引入 PeerJS WebRTC 库 -->
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
   :root {
     --bg-color: #f7f3fc;
     --panel-bg: #ffffff;
     --accent: #ff8fab;
-    --p1-color: #ffb7b2; /* 玩家1/房主：马卡龙粉 */
-    --p2-color: #a0c4ff; /* 玩家2：马卡龙蓝 */
-    --p3-color: #caffbf; /* 玩家3：马卡龙绿 */
+    --p1-color: #ffb7b2; /* 玩家：马卡龙粉 */
+    --p2-color: #a0c4ff; /* AI 1：马卡龙蓝 */
+    --p3-color: #caffbf; /* AI 2：马卡龙绿 */
     --grid-bg: #fffff9;  
   }
   body {
@@ -144,34 +142,6 @@
     font-family: monospace;
     border: 1px solid #eee;
   }
-
-  /* 联机扩展样式（内嵌于控制栏） */
-  .online-box {
-    background: #f0f4f8;
-    padding: 10px;
-    border-radius: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    font-size: 12px;
-  }
-  .online-input-group {
-    display: flex;
-    gap: 5px;
-  }
-  .online-input-group input {
-    flex: 1;
-    padding: 6px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    text-align: center;
-    font-weight: bold;
-  }
-  .online-btn {
-    padding: 6px 10px;
-    font-size: 12px;
-    border-radius: 6px;
-  }
 </style>
 </head>
 <body>
@@ -180,17 +150,17 @@
 
 <div class="status-card">
   <div class="player-info" id="p1-card">
-    <div class="p1-text" id="p1-name">玩家 1</div>
+    <div class="p1-text">玩家</div>
     <div>金币: <span id="p1-coins">30</span></div>
     <div>地毯: <span id="p1-carpets">15</span></div>
   </div>
   <div class="player-info" id="p2-card">
-    <div class="p2-text" id="p2-name">玩家 2</div>
+    <div class="p2-text">AI 1</div>
     <div>金币: <span id="p2-coins">30</span></div>
     <div>地毯: <span id="p2-carpets">15</span></div>
   </div>
   <div class="player-info" id="p3-card">
-    <div class="p3-text" id="p3-name">玩家 3</div>
+    <div class="p3-text">AI 2</div>
     <div>金币: <span id="p3-coins">30</span></div>
     <div>地毯: <span id="p3-carpets">15</span></div>
   </div>
@@ -200,18 +170,7 @@
   <div class="board-outer" id="board"></div>
 
   <div class="controls">
-    <!-- 房间码联机面板 -->
-    <div class="online-box">
-      <div style="font-weight:bold; color:#555; text-align:center;">🌐 联机对战 (房间码)</div>
-      <div id="room-status" style="color:#888; text-align:center;">单机模式中</div>
-      <div class="online-input-group">
-        <button class="online-btn" id="create-room-btn">创建房间</button>
-        <input type="text" id="room-code-input" placeholder="输入4位房间码" maxlength="4">
-        <button class="online-btn" id="join-room-btn">加入</button>
-      </div>
-    </div>
-
-    <div id="turn-indicator" style="text-align: center; font-weight: bold; color: #6c5b7b;">轮到：玩家 1</div>
+    <div id="turn-indicator" style="text-align: center; font-weight: bold; color: #6c5b7b;">轮到：玩家</div>
     
     <div id="dir-select">
       <label style="font-size: 13px; color: #888;">移动策略选择：</label>
@@ -238,9 +197,9 @@ const DIR_VECTORS = [{x:0, y:1}, {x:1, y:0}, {x:0, y:-1}, {x:-1, y:0}];
 const DIR_SYMBOLS = ['↑', '→', '↓', '←'];
 
 let players = {
-  p1: { coins: 30, carpets: 15, name: '玩家 1', color: 'p1', isAI: false },
-  p2: { coins: 30, carpets: 15, name: 'AI 1', color: 'p2', isAI: true },
-  p3: { coins: 30, carpets: 15, name: 'AI 2', color: 'p3', isAI: true }
+  p1: { coins: 30, carpets: 15, name: '玩家', color: 'p1' },
+  p2: { coins: 30, carpets: 15, name: 'AI 1', color: 'p2' },
+  p3: { coins: 30, carpets: 15, name: 'AI 2', color: 'p3' }
 };
 const playerKeys = ['p1', 'p2', 'p3'];
 let currentPlayerIndex = 0;
@@ -249,13 +208,6 @@ let currentPlayer = playerKeys[currentPlayerIndex];
 let gameState = 'MOVE_SELECT';
 let selectedCells = [];
 let allowedRange = 1;
-
-// 联机相关变量
-let peer = null;
-let connections = {}; // 储存所有连接 (房主连接客户端，客户端连接房主)
-let myPlayerKey = 'p1'; // 本地玩家对应的key，单机模式下默认是 p1
-let isHost = false;
-let isOnlineMode = false;
 
 const boardEl = document.getElementById('board');
 const logEl = document.getElementById('log');
@@ -308,168 +260,11 @@ function render() {
   playerKeys.forEach(k => {
     document.getElementById(`${k}-coins`).innerText = players[k].coins;
     document.getElementById(`${k}-carpets`).innerText = players[k].carpets;
-    document.getElementById(`${k}-name`).innerText = players[k].name;
     document.getElementById(`${k}-card`).className = `player-info ${currentPlayer === k ? 'active' : ''}`;
   });
 
   document.getElementById('turn-indicator').innerText = `轮到：${players[currentPlayer].name}`;
 }
-
-/* ================= 联机通信逻辑 (PeerJS) ================= */
-
-document.getElementById('create-room-btn').addEventListener('click', createRoom);
-document.getElementById('join-room-btn').addEventListener('click', joinRoom);
-
-function createRoom() {
-  const roomCode = Math.floor(1000 + Math.random() * 9000).toString();
-  peer = new Peer('unic_' + roomCode);
-
-  document.getElementById('room-status').innerText = '正在创建房间...';
-
-  peer.on('open', (id) => {
-    isHost = true;
-    isOnlineMode = true;
-    myPlayerKey = 'p1';
-    players.p1.isAI = false;
-    document.getElementById('room-status').innerText = `房间码：${roomCode} (等待加入)`;
-    log(`🏠 成功创建房间！房间码为：<b>${roomCode}</b>`);
-  });
-
-  peer.on('connection', (conn) => {
-    conn.on('open', () => {
-      let newKey = !connections['p2'] ? 'p2' : (!connections['p3'] ? 'p3' : null);
-      if (!newKey) {
-        conn.send({ type: 'FULL' });
-        return;
-      }
-
-      connections[newKey] = conn;
-      players[newKey].name = `玩家 (${newKey.toUpperCase()})`;
-      players[newKey].isAI = false;
-
-      log(`🎮 ${players[newKey].name} 加入了房间！`);
-
-      // 告知对方他的身份 key
-      conn.send({ type: 'INIT_IDENTITY', key: newKey, players: getPlayersData() });
-
-      // 广播更新所有玩家信息
-      broadcast({ type: 'UPDATE_PLAYERS', players: getPlayersData() });
-      render();
-
-      setupConnListeners(conn, newKey);
-    });
-  });
-
-  peer.on('error', (err) => {
-    alert("创建房间失败，建议重试或更换网络连接。");
-    document.getElementById('room-status').innerText = '创建失败';
-  });
-}
-
-function joinRoom() {
-  const code = document.getElementById('room-code-input').value.trim();
-  if (code.length !== 4) {
-    alert("请输入4位数字房间码！");
-    return;
-  }
-
-  peer = new Peer();
-  document.getElementById('room-status').innerText = '正在加入...';
-
-  peer.on('open', () => {
-    const conn = peer.connect('unic_' + code);
-    
-    conn.on('open', () => {
-      isHost = false;
-      isOnlineMode = true;
-      setupConnListeners(conn, 'host');
-    });
-
-    peer.on('error', () => {
-      alert("无法找到该房间或房间已关闭！");
-      document.getElementById('room-status').innerText = '加入失败';
-    });
-  });
-}
-
-function setupConnListeners(conn, key) {
-  conn.on('data', (data) => {
-    if (data.type === 'FULL') {
-      alert("房间已满！");
-      return;
-    }
-
-    if (data.type === 'INIT_IDENTITY') {
-      myPlayerKey = data.key;
-      document.getElementById('room-status').innerText = `已加入 (你是 ${myPlayerKey.toUpperCase()})`;
-      log(`✅ 成功加入房间！你的身份是：<b>${myPlayerKey.toUpperCase()}</b>`);
-      updatePlayersData(data.players);
-    }
-
-    if (data.type === 'UPDATE_PLAYERS') {
-      updatePlayersData(data.players);
-    }
-
-    if (data.type === 'SYNC_ACTION') {
-      // 房主转发给其他人
-      if (isHost) {
-        broadcastExcept(data, key);
-      }
-      handleRemoteAction(data);
-    }
-  });
-}
-
-function broadcast(data) {
-  Object.values(connections).forEach(c => c && c.send(data));
-}
-
-function broadcastExcept(data, exceptKey) {
-  Object.keys(connections).forEach(k => {
-    if (k !== exceptKey && connections[k]) {
-      connections[k].send(data);
-    }
-  });
-}
-
-function getPlayersData() {
-  let res = {};
-  playerKeys.forEach(k => {
-    res[k] = { name: players[k].name, isAI: players[k].isAI };
-  });
-  return res;
-}
-
-function updatePlayersData(pData) {
-  playerKeys.forEach(k => {
-    if (pData[k]) {
-      players[k].name = pData[k].name;
-      players[k].isAI = pData[k].isAI;
-    }
-  });
-  render();
-}
-
-function sendSyncAction(actionPayload) {
-  if (!isOnlineMode) return;
-  const payload = { type: 'SYNC_ACTION', sender: myPlayerKey, ...actionPayload };
-  if (isHost) {
-    broadcast(payload);
-  } else {
-    Object.values(connections)[0]?.send(payload);
-  }
-}
-
-function handleRemoteAction(data) {
-  if (data.action === 'ROLL_MOVE') {
-    executeMoveAction(data.sender, data.dirChoice, data.steps);
-  } else if (data.action === 'PLACE_CARPET') {
-    validateAndPlaceCarpet(data.pos1, data.pos2, data.sender);
-    endTurn();
-  }
-}
-
-/* ================= 游戏核心逻辑 ================= */
 
 function moveUnicornStep() {
   let vec = DIR_VECTORS[unicorn.dir];
@@ -533,32 +328,21 @@ function moveUnicornStep() {
 }
 
 document.getElementById('roll-btn').addEventListener('click', () => {
-  if (gameState !== 'MOVE_SELECT' || currentPlayer !== myPlayerKey) return;
-  
-  const actionChoice = document.getElementById('dir-input').value;
-  const steps = Math.floor(Math.random() * 4) + 1;
-
-  // 发送动作同步
-  sendSyncAction({ action: 'ROLL_MOVE', dirChoice: actionChoice, steps: steps });
-  
-  executeMoveAction(myPlayerKey, actionChoice, steps);
+  if (gameState !== 'MOVE_SELECT' || currentPlayer !== 'p1') return;
+  startTurnAction('p1');
 });
 
 function startTurnAction(playerKey) {
-  if (players[playerKey].isAI) {
-    // 房主代跑 AI
-    if (isOnlineMode && !isHost) return;
-
+  const isAI = playerKey !== 'p1';
+  let actionChoice = 'forward';
+  
+  if (isAI) {
     const choices = ['forward', 'left', 'right'];
-    const actionChoice = choices[Math.floor(Math.random() * choices.length)];
-    const steps = Math.floor(Math.random() * 4) + 1;
-
-    sendSyncAction({ action: 'ROLL_MOVE', dirChoice: actionChoice, steps: steps });
-    executeMoveAction(playerKey, actionChoice, steps);
+    actionChoice = choices[Math.floor(Math.random() * choices.length)];
+  } else {
+    actionChoice = document.getElementById('dir-input').value;
   }
-}
 
-function executeMoveAction(playerKey, actionChoice, steps) {
   let actionText = "直行";
   if (actionChoice === 'left') {
     unicorn.dir = (unicorn.dir + 3) % 4;
@@ -568,6 +352,7 @@ function executeMoveAction(playerKey, actionChoice, steps) {
     actionText = "向右转";
   }
 
+  const steps = Math.floor(Math.random() * 4) + 1;
   log(`${players[playerKey].name} 选择了【${actionText}】，掷出了 <b>${steps}</b> 点！`);
 
   document.getElementById('roll-btn').disabled = true;
@@ -586,19 +371,17 @@ function executeMoveAction(playerKey, actionChoice, steps) {
       
       allowedRange = hasValidPairsInBox(1) ? 1 : 2;
       
-      if (currentPlayer === myPlayerKey) {
+      if (!isAI) {
         if (allowedRange === 1) {
           document.getElementById('action-hint').innerText = "步骤：请在 3x3 九宫格内选择 2 个相邻格子铺地毯";
         } else {
           document.getElementById('action-hint').innerText = "⚠️ 九宫格内无解！已扩展至 5x5 范围";
         }
-      } else {
-        document.getElementById('action-hint').innerText = `等待 ${players[currentPlayer].name} 铺设地毯...`;
       }
       
       highlightValidCarpetOptions();
 
-      if (players[playerKey].isAI && (!isOnlineMode || isHost)) {
+      if (isAI) {
         setTimeout(() => aiExecuteCarpet(playerKey), 1000);
       }
     }
@@ -700,7 +483,7 @@ function highlightValidCarpetOptions() {
 }
 
 function handleCellClick(x, y) {
-  if (gameState !== 'CARPET_SELECT' || currentPlayer !== myPlayerKey) return;
+  if (gameState !== 'CARPET_SELECT' || currentPlayer !== 'p1') return;
   if (x === unicorn.x && y === unicorn.y) return;
   if (Math.abs(x - unicorn.x) > allowedRange || Math.abs(y - unicorn.y) > allowedRange) return;
 
@@ -715,8 +498,7 @@ function handleCellClick(x, y) {
     let validRangeRule = (allowedRange === 1) ? (firstIn3 && secondIn3) : (firstIn3 || secondIn3);
 
     if (Math.abs(first.x - x) + Math.abs(first.y - y) === 1 && validRangeRule) {
-      if (validateAndPlaceCarpet(selectedCells[0], {x, y}, myPlayerKey)) {
-        sendSyncAction({ action: 'PLACE_CARPET', pos1: selectedCells[0], pos2: {x, y} });
+      if (validateAndPlaceCarpet(selectedCells[0], {x, y}, 'p1')) {
         endTurn();
       } else {
         resetSelection();
@@ -739,7 +521,7 @@ function getCellEl(x, y) {
 
 function validateAndPlaceCarpet(pos1, pos2, playerKey) {
   if (!checkCarpetValidity(pos1, pos2)) {
-    if (playerKey === myPlayerKey) {
+    if (playerKey === 'p1') {
       log("❌ 非法铺设：不能同时覆盖两格最上层都是同色地毯！");
     }
     return false;
@@ -790,7 +572,6 @@ function aiExecuteCarpet(aiKey) {
   if (validPairs.length > 0) {
     const choice = validPairs[Math.floor(Math.random() * validPairs.length)];
     validateAndPlaceCarpet(choice[0], choice[1], aiKey);
-    sendSyncAction({ action: 'PLACE_CARPET', pos1: choice[0], pos2: choice[1] });
   } else {
     log(`${players[aiKey].name} 无合法位置可铺，跳过`);
   }
@@ -812,17 +593,13 @@ function endTurn() {
   currentPlayer = playerKeys[currentPlayerIndex];
 
   gameState = 'MOVE_SELECT';
-  const isMyTurn = (currentPlayer === myPlayerKey);
-  
-  document.getElementById('roll-btn').disabled = !isMyTurn || players[currentPlayer].isAI;
-  
-  if (isMyTurn) {
-    document.getElementById('action-hint').innerText = "步骤：请选择策略并掷骰子";
-  } else {
-    document.getElementById('action-hint').innerText = `等待 ${players[currentPlayer].name} 操作...`;
-  }
+  const isAI = currentPlayer !== 'p1';
+  document.getElementById('roll-btn').disabled = isAI;
+  document.getElementById('action-hint').innerText = !isAI ? "步骤：请选择策略并掷骰子" : `${players[currentPlayer].name} 思考中...`;
 
-  startTurnAction(currentPlayer);
+  if (isAI) {
+    setTimeout(() => startTurnAction(currentPlayer), 1000);
+  }
 }
 
 function checkGameOver() {
