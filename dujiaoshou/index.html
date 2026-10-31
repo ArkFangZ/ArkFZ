@@ -1,218 +1,215 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商业独角兽</title>
+<!-- 引入 Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- 引入 FontAwesome 图标 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- 引入现代化字体 -->
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+    tailwind.config = {
+        darkMode: 'class',
+        theme: {
+            extend: {
+                fontFamily: {
+                    sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                },
+                animation: {
+                    'pop': 'pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                    'float': 'float 2s ease-in-out infinite',
+                },
+                keyframes: {
+                    pop: {
+                        '0%': { transform: 'scale(0.8)', opacity: '0.5' },
+                        '100%': { transform: 'scale(1)', opacity: '1' },
+                    },
+                    float: {
+                        '0%, 100%': { transform: 'translateY(0)' },
+                        '50%': { transform: 'translateY(-4px)' }
+                    }
+                }
+            }
+        }
+    }
+</script>
 <style>
-  :root {
-    --bg-color: #fce4ec;
-    --panel-bg: #ffffff;
-    --accent: #ff8fab;
-    --p1-color: #ffb7b2; /* 玩家：马卡龙粉 */
-    --p2-color: #a0c4ff; /* AI 1：马卡龙蓝 */
-    --p3-color: #caffbf; /* AI 2：马卡龙绿 */
-    --grid-bg: #fffff9;  
-  }
-  body {
-    margin: 0;
-    padding: 20px;
-    background: linear-gradient(135deg, #fce4ec 0%, #f3e5f5 50%, #e8eaf6 100%);
-    color: #4a4a4a;
-    font-family: Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  h1 { margin-bottom: 10px; font-size: 24px; color: #6c5b7b; }
-  
-  .game-container {
-    display: flex;
-    gap: 24px;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: flex-start;
-  }
-
-  .status-card {
-    background: var(--panel-bg);
-    backdrop-filter: blur(10px);
-    padding: 15px 24px;
-    border-radius: 20px;
-    display: flex;
-    gap: 20px;
-    margin-bottom: 15px;
-    box-shadow: 0 8px 32px 0 rgba(31,38,135,0.07);
-    border: 1px solid rgba(255,255,255,0.18);
-  }
-
-  .player-info { text-align: center; padding: 8px 14px; border-radius: 12px; transition: all 0.3s ease;}
-  .player-info.active { background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transform: translateY(-2px); border-bottom: 3px solid var(--accent); }
-  .p1-text { color: #e07a5f; font-weight: bold; }
-  .p2-text { color: #3d5a80; font-weight: bold; }
-  .p3-text { color: #2b9348; font-weight: bold; }
-
-.board-outer {
-    display: grid;
-    grid-template-columns: repeat(7, 52px);
-    grid-template-rows: repeat(7, 52px);
-    gap: 5px;
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(8px);
-    padding: 16px;
-    border-radius: 24px;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.08);
-    border: 1px solid rgba(255, 255, 255, 0.4);
-  }
-
-  .cell {
-    width: 52px;
-    height: 52px;
-    background: var(--grid-bg);
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    cursor: default;
-    transition: all 0.2s;
-  }
-
-  .cell[data-owner="p1"] { background-color: var(--p1-color); }
-  .cell[data-owner="p2"] { background-color: var(--p2-color); }
-  .cell[data-owner="p3"] { background-color: var(--p3-color); }
-
-  .cell.highlight { 
-    box-shadow: inset 0 0 0 3px #ffb703; 
-    cursor: pointer; 
-  }
-  .cell.selected { 
-    box-shadow: inset 0 0 0 4px #06d6a0, 0 0 8px #06d6a0; 
-    transform: scale(0.95); 
-  }
-
-  .unicorn-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    font-size: 22px;
-    animation: float 2s ease-in-out infinite;
-  }
-
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-3px); }
-  }
-
-  .dir-indicator {
-    font-size: 11px;
-    font-weight: bold;
-    color: #d90429;
-    background: rgba(255,255,255,0.9);
-    border-radius: 50%;
-    width: 15px;
-    height: 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .controls {
-    background: var(--panel-bg);
-    backdrop-filter: blur(10px);
-    padding: 24px;
-    border-radius: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    width: 280px;
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-  }
-
-button {
-    background: linear-gradient(135deg, var(--accent), #ff8fab);
-    color: white;
-    border: none;
-    padding: 12px;
-    border-radius: 12px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 15px rgba(255, 117, 140, 0.3);
-  }
-  button:disabled { 
-    background: #e0e0e0; 
-    box-shadow: none;
-    cursor: not-allowed; 
-  }
-  button:hover:not(:disabled) { 
-    transform: translateY(-1px);
-    filter: brightness(1.05); 
-    box-shadow: 0 6px 20px rgba(255, 117, 140, 0.4);
-  }
-  .log-box {
-    background: #f8f9fa;
-    border-radius: 10px;
-    padding: 10px;
-    height: 140px;
-    overflow-y: auto;
-    font-size: 12px;
-    color: #666;
-    font-family: monospace;
-    border: 1px solid #eee;
-  }
+    body {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        user-select: none;
+        -webkit-user-select: none;
+        transition: background-color 0.3s ease, color 0.3s ease;
+    }
+    .cell {
+        aspect-ratio: 1 / 1;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .cell[data-owner="p1"] { background-color: #ffb7b2 !important; }
+    .cell[data-owner="p2"] { background-color: #a0c4ff !important; }
+    .cell[data-owner="p3"] { background-color: #caffbf !important; }
+    
+    .cell.highlight { 
+        box-shadow: inset 0 0 0 3px #ffb703; 
+        cursor: pointer; 
+        animation: pulse-highlight 1.5s infinite;
+    }
+    @keyframes pulse-highlight {
+        0% { box-shadow: inset 0 0 0 3px rgba(255, 183, 3, 0.6); }
+        50% { box-shadow: inset 0 0 0 4px rgba(255, 183, 3, 1); }
+        100% { box-shadow: inset 0 0 0 3px rgba(255, 183, 3, 0.6); }
+    }
+    .cell.selected { 
+        box-shadow: inset 0 0 0 4px #06d6a0, 0 0 12px rgba(6, 214, 160, 0.5); 
+        transform: scale(0.93); 
+    }
 </style>
 </head>
-<body>
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 sm:p-6 md:p-8">
 
-<h1>🦄商业独角兽</h1>
+<!-- Header 顶部标题栏与主题切换 -->
+<header class="w-full max-w-3xl flex items-center justify-between mb-4 sm:mb-6">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-pink-500/80 to-rose-400/80 flex items-center justify-center shadow-md text-white text-xl">
+            🦄
+        </div>
+        <div>
+            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-700 dark:text-slate-200">
+                商业独角兽
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-400 dark:text-slate-400 font-medium">策略铺地毯大作战</p>
+        </div>
+    </div>
+    
+    <button id="themeToggleBtn" title="切换深色/浅色模式" class="flex items-center justify-center w-10 h-10 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-amber-400 rounded-xl transition shadow-sm border border-slate-200 dark:border-slate-700">
+        <i id="themeIcon" class="fa-solid fa-moon text-lg"></i>
+    </button>
+</header>
 
-<div class="status-card">
-  <div class="player-info" id="p1-card">
-    <div class="p1-text">玩家</div>
-    <div>金币: <span id="p1-coins">30</span></div>
-    <div>地毯: <span id="p1-carpets">15</span></div>
-  </div>
-  <div class="player-info" id="p2-card">
-    <div class="p2-text">AI 1</div>
-    <div>金币: <span id="p2-coins">30</span></div>
-    <div>地毯: <span id="p2-carpets">15</span></div>
-  </div>
-  <div class="player-info" id="p3-card">
-    <div class="p3-text">AI 2</div>
-    <div>金币: <span id="p3-coins">30</span></div>
-    <div>地毯: <span id="p3-carpets">15</span></div>
-  </div>
+<!-- Status Card 玩家状态栏 -->
+<div class="w-full max-w-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-lg flex gap-3 justify-around mb-6 transition-colors">
+    <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p1-card">
+        <div class="p1-text font-bold text-rose-500 dark:text-rose-400 text-xs">玩家</div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">金币: <span id="p1-coins" class="font-extrabold">30</span></div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400">地毯: <span id="p1-carpets" class="font-extrabold">15</span></div>
+    </div>
+    <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p2-card">
+        <div class="p2-text font-bold text-blue-500 dark:text-blue-400 text-xs">AI 1</div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">金币: <span id="p2-coins" class="font-extrabold">30</span></div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400">地毯: <span id="p2-carpets" class="font-extrabold">15</span></div>
+    </div>
+    <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p3-card">
+        <div class="p3-text font-bold text-emerald-500 dark:text-emerald-400 text-xs">AI 2</div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">金币: <span id="p3-coins" class="font-extrabold">30</span></div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400">地毯: <span id="p3-carpets" class="font-extrabold">15</span></div>
+    </div>
 </div>
 
-<div class="game-container">
-  <div class="board-outer" id="board"></div>
+<!-- Main Game Layout -->
+<div class="w-full max-w-4xl flex flex-col md:flex-row gap-6 items-center md:items-start justify-center my-auto">
+  
+  <!-- 恢复正常大小的 7x7 棋盘 (格子设为 56px) -->
+  <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl transition-colors">
+      <div class="board-outer grid grid-cols-7 gap-2" id="board"></div>
+  </div>
 
-  <div class="controls">
-    <div id="turn-indicator" style="text-align: center; font-weight: bold; color: #6c5b7b;">轮到：玩家</div>
+  <div class="controls bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl flex flex-col gap-4 w-full md:w-80 transition-colors">
+    <div id="turn-indicator" class="text-center font-bold text-slate-700 dark:text-slate-200 text-base">轮到：玩家</div>
     
-    <div id="dir-select">
-      <label style="font-size: 13px; color: #888;">移动策略选择：</label>
-      <select id="dir-input" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 8px; border: 1px solid #ddd;">
+    <div id="dir-select" class="flex flex-col gap-1.5">
+      <label class="text-xs font-semibold text-slate-400 dark:text-slate-400">移动策略选择：</label>
+      <select id="dir-input" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400">
         <option value="forward">直行</option>
         <option value="left">左转</option>
         <option value="right">右转</option>
       </select>
     </div>
 
-    <button id="roll-btn">掷骰子</button>
+    <button id="roll-btn" class="w-full py-3 px-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white font-bold rounded-xl shadow-lg shadow-pink-500/25 transition duration-200 active:scale-95 text-sm flex items-center justify-center gap-2">
+        <i class="fa-solid fa-dice"></i> 掷骰子
+    </button>
     
-    <div style="font-size: 12px; color: #888;" id="action-hint">步骤：请选择策略并掷骰子</div>
+    <div class="text-xs text-slate-500 dark:text-slate-400 text-center bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200/50 dark:border-slate-700/50" id="action-hint">步骤：请选择策略并掷骰子</div>
     
-    <div class="log-box" id="log"></div>
+    <div class="log-box bg-slate-50 dark:bg-slate-900/80 rounded-xl p-3 h-36 overflow-y-auto text-xs font-mono text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/50 space-y-1" id="log"></div>
   </div>
 </div>
 
+<!-- 游戏结束弹窗 -->
+<div id="victoryModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl max-w-xs w-full p-5 text-center shadow-2xl animate-pop text-slate-800 dark:text-slate-100">
+        <h3 class="text-xl font-extrabold mb-1">游戏结算</h3>
+        <div id="modal-result-text" class="text-xs text-slate-600 dark:text-slate-300 my-3 text-left bg-slate-50 dark:bg-slate-900/80 p-3 rounded-xl border border-slate-200 dark:border-slate-700/50 space-y-2"></div>
+        
+        <div class="flex flex-col gap-2">
+            <button onclick="document.getElementById('victoryModal').classList.add('hidden')" class="w-full py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition">
+                返回查看当局状态
+            </button>
+            <button onclick="location.reload()" class="w-full py-2.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white font-bold rounded-xl text-xs shadow-md shadow-pink-500/25 transition">
+                再玩一局
+            </button>
+        </div>
+    </div>
+</div>
+
+<footer class="w-full max-w-4xl text-center text-xs text-slate-400 dark:text-slate-500 mt-6">
+    商业独角兽 • 策略铺地毯
+</footer>
+
 <script>
+// --- 音效系统 (Web Audio API 合成) ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+function initAudio() { if (!audioCtx) audioCtx = new AudioContext(); }
+function playTone(freq, type, duration, gainVal = 0.1) {
+    try {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    } catch (e) {}
+}
+function playSound(type) {
+    initAudio();
+    if (type === 'move') playTone(300, 'sine', 0.08, 0.05);
+    else if (type === 'rent') playTone(180, 'sawtooth', 0.15, 0.1);
+    else if (type === 'carpet') playTone(523, 'triangle', 0.12, 0.12);
+    else if (type === 'win') {
+        [392, 523, 659, 784].forEach((f, idx) => {
+            setTimeout(() => playTone(f, 'triangle', 0.2, 0.15), idx * 90);
+        });
+    }
+}
+
+// --- 暗色模式切换逻辑 ---
+function initTheme() {
+    const btn = document.getElementById('themeToggleBtn');
+    const icon = document.getElementById('themeIcon');
+    const saved = localStorage.getItem('unicorn_theme') || 'dark';
+    if (saved === 'dark') {
+        document.documentElement.classList.add('dark');
+        icon.className = 'fa-solid fa-sun text-lg text-amber-400';
+    } else {
+        document.documentElement.classList.remove('dark');
+        icon.className = 'fa-solid fa-moon text-lg text-slate-500';
+    }
+    btn.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('unicorn_theme', isDark ? 'dark' : 'light');
+        icon.className = isDark ? 'fa-solid fa-sun text-lg text-amber-400' : 'fa-solid fa-moon text-lg text-slate-500';
+    });
+}
+
+// --- 游戏核心逻辑 ---
 const SIZE = 7;
 let boardData = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null).map(() => []));
 let unicorn = { x: 3, y: 3, dir: 0 };
@@ -240,7 +237,8 @@ function createBoardDOM() {
   for (let r = SIZE - 1; r >= 0; r--) {
     for (let c = 0; c < SIZE; c++) {
       const cell = document.createElement('div');
-      cell.className = 'cell';
+      // 恢复每个格子的大小 (w-14 h-14 即 56px)
+      cell.className = 'cell w-14 h-14 bg-slate-100 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700/50 flex flex-col items-center justify-center relative cursor-default shadow-sm';
       cell.dataset.x = c;
       cell.dataset.y = r;
       cell.addEventListener('click', () => handleCellClick(c, r));
@@ -272,9 +270,9 @@ function render() {
 
     if (x === unicorn.x && y === unicorn.y) {
       el.innerHTML = `
-        <div class="unicorn-container">
+        <div class="unicorn-container flex items-center justify-center gap-1 text-2xl animate-float">
           <span>🦄</span>
-          <span class="dir-indicator">${DIR_SYMBOLS[unicorn.dir]}</span>
+          <span class="dir-indicator text-xs font-black text-rose-500">${DIR_SYMBOLS[unicorn.dir]}</span>
         </div>
       `;
     }
@@ -283,7 +281,12 @@ function render() {
   playerKeys.forEach(k => {
     document.getElementById(`${k}-coins`).innerText = players[k].coins;
     document.getElementById(`${k}-carpets`).innerText = players[k].carpets;
-    document.getElementById(`${k}-card`).className = `player-info ${currentPlayer === k ? 'active' : ''}`;
+    const card = document.getElementById(`${k}-card`);
+    if (currentPlayer === k) {
+        card.className = `player-info flex-1 text-center p-2 rounded-xl transition-all bg-white dark:bg-slate-900 shadow-sm ring-2 ring-pink-400`;
+    } else {
+        card.className = `player-info flex-1 text-center p-2 rounded-xl transition-all opacity-70`;
+    }
   });
 
   document.getElementById('turn-indicator').innerText = `轮到：${players[currentPlayer].name}`;
@@ -386,6 +389,7 @@ function startTurnAction(playerKey) {
     if (currentStep < steps) {
       moveUnicornStep();
       render();
+      playSound('move');
       currentStep++;
     } else {
       clearInterval(stepInterval);
@@ -396,9 +400,9 @@ function startTurnAction(playerKey) {
       
       if (!isAI) {
         if (allowedRange === 1) {
-          document.getElementById('action-hint').innerText = "步骤：请在 3x3 九宫格内选择 2 个相邻格子铺地毯";
+          document.getElementById('action-hint').innerText = "步骤：请在九宫格内选择 2 个相邻格子铺地毯";
         } else {
-          document.getElementById('action-hint').innerText = "⚠️ 九宫格内无解！已扩展至 5x5 范围";
+          document.getElementById('action-hint').innerText = "⚠️ 九宫格无解！已扩展至 5x5 范围";
         }
       }
       
@@ -443,6 +447,7 @@ function checkRent() {
     }
   }
 
+  playSound('rent');
   log(`⚠️ 踩中 ${players[topOwner].name} 的地盘！连通面积 ${areaSize} 格，支付 ${areaSize} 金币租金！`);
   players[currentPlayer].coins -= areaSize;
   players[topOwner].coins += areaSize;
@@ -555,6 +560,7 @@ function validateAndPlaceCarpet(pos1, pos2, playerKey) {
   boardData[pos2.y][pos2.x].push({ owner: playerKey, id: carpetId });
 
   players[playerKey].carpets--;
+  playSound('carpet');
   log(`${players[playerKey].name} 铺设地毯于 (${pos1.x},${pos1.y}) 和 (${pos2.x},${pos2.y})`);
   return true;
 }
@@ -628,6 +634,7 @@ function endTurn() {
 function checkGameOver() {
   gameState = 'GAME_OVER';
   document.getElementById('roll-btn').disabled = true;
+  playSound('win');
 
   let areas = {};
   playerKeys.forEach(k => areas[k] = 0);
@@ -644,20 +651,30 @@ function checkGameOver() {
     }
   }
 
-  log("🏆 <b>游戏结束！结算如下：</b>");
-  playerKeys.forEach(k => {
-    log(`${players[k].name}：${players[k].coins} 金币 | 可见格子：${areas[k]}`);
-  });
-
   let sorted = [...playerKeys].sort((a, b) => {
     if (players[b].coins !== players[a].coins) return players[b].coins - players[a].coins;
     return areas[b] - areas[a];
   });
 
-  log(`🎉 最终胜者：<b>${players[sorted[0]].name}</b>！`);
+  let winnerKey = sorted[0];
+  
+  let resultHTML = "";
+  sorted.forEach((k, index) => {
+    let rankText = `第 ${index + 1} 名`;
+    resultHTML += `<div class="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-700/50 last:border-0"><span class="font-semibold text-slate-500">${rankText} <b>${players[k].name}</b></span>: <span class="text-pink-500 font-bold">${players[k].coins} 金币</span> (可见: ${areas[k]})</div>`;
+  });
+  
+  document.getElementById('modal-result-text').innerHTML = `
+    <div class="mb-2 font-extrabold text-pink-500 text-xs text-center">最终胜者：${players[winnerKey].name}！</div>
+    ${resultHTML}
+  `;
+  document.getElementById('victoryModal').classList.remove('hidden');
 }
 
-createBoardDOM();
+window.onload = () => {
+    initTheme();
+    createBoardDOM();
+};
 </script>
 </body>
 </html>
