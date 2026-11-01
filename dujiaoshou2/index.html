@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商业独角兽 · 最终完美版</title>
+<!-- 引入 Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- 引入 FontAwesome 图标 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- 引入 Font -->
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- 引入 MQTT 浏览器客户端 -->
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<script>
+    tailwind.config = {
+        darkMode: 'class',
+        theme: {
+            extend: {
+                fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+                animation: { 'pop': 'pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards', 'float': 'float 2s ease-in-out infinite' },
+                keyframes: {
+                    pop: { '0%': { transform: 'scale(0.8)', opacity: '0.5' }, '100%': { transform: 'scale(1)', opacity: '1' } },
+                    float: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-4px)' } }
+                }
+            }
+        }
+    }
+</script>
+<style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; user-select: none; transition: background-color 0.3s, color 0.3s; }
+    .cell { aspect-ratio: 1 / 1; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .cell[data-owner="p1"] { background-color: #ffb7b2 !important; }
+    .cell[data-owner="p2"] { background-color: #a0c4ff !important; }
+    .cell[data-owner="p3"] { background-color: #caffbf !important; }
+    .cell.highlight { box-shadow: inset 0 0 0 3px #ffb703; cursor: pointer; animation: pulse-highlight 1.5s infinite; }
+    @keyframes pulse-highlight { 0%, 100% { box-shadow: inset 0 0 0 3px rgba(255, 183, 3, 0.6); } 50% { box-shadow: inset 0 0 0 4px rgba(255, 183, 3, 1); } }
+    .cell.selected { box-shadow: inset 0 0 0 4px #06d6a0, 0 0 12px rgba(6, 214, 160, 0.5); transform: scale(0.93); }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 sm:p-6">
+
+<!-- 顶部标题栏 -->
+<header class="w-full max-w-3xl flex items-center justify-between mb-4">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-pink-500/80 to-rose-400/80 flex items-center justify-center shadow-md text-white text-xl">🦄</div>
+        <div>
+            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-700 dark:text-slate-200">商业独角兽</h1>
+            <p class="text-xs text-slate-400 font-medium">策略铺地毯大作战</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-2">
+        <button id="exit-game-btn" onclick="returnToMainMenu()" class="hidden px-3 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition shadow-sm border border-slate-300 dark:border-slate-700">
+            <i class="fa-solid fa-arrow-left"></i> 退出
+        </button>
+        <button id="themeToggleBtn" title="切换主题" class="flex items-center justify-center w-10 h-10 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-amber-400 rounded-xl transition shadow-sm border border-slate-200 dark:border-slate-700">
+            <i id="themeIcon" class="fa-solid fa-moon text-lg"></i>
+        </button>
+    </div>
+</header>
+
+<!-- ================= 主菜单大厅 ================= -->
+<div id="view-main-menu" class="w-full max-w-md bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl my-auto space-y-5">
+    <div class="text-center">
+        <h2 class="text-2xl font-black text-pink-500 mb-1">欢迎来到独角兽大作战</h2>
+        <p class="text-xs text-slate-400">请输入你的昵称并选择对战模式</p>
+    </div>
+
+    <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1">你的昵称：</label>
+        <input type="text" id="player-nickname" placeholder="例如：独角兽高手" value="冒险者" class="w-full p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-pink-400">
+    </div>
+
+    <button onclick="startPVCGame()" class="w-full py-3.5 px-6 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-bold rounded-2xl shadow-lg shadow-indigo-500/25 transition active:scale-95 flex items-center justify-center gap-3 text-sm">
+        <i class="fa-solid fa-robot text-lg"></i> 单人模式 (PVC 人机对战)
+    </button>
+
+    <div class="relative flex py-1 items-center">
+        <div class="flex-grow border-t border-slate-200 dark:border-slate-700"></div>
+        <span class="flex-shrink mx-4 text-xs font-bold text-slate-400">或者 异地联机</span>
+        <div class="flex-grow border-t border-slate-200 dark:border-slate-700"></div>
+    </div>
+
+    <div class="space-y-3">
+        <button onclick="showCreateRoomView()" class="w-full py-3.5 px-6 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold rounded-2xl shadow-lg shadow-pink-500/25 transition active:scale-95 text-sm flex items-center justify-center gap-2">
+            <i class="fa-solid fa-plus-circle"></i> 创建新房间 (做房主)
+        </button>
+        
+        <div class="flex gap-2">
+            <input type="text" id="join-room-input" placeholder="输入房间码 (如 888)" class="flex-1 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-center font-bold text-sm focus:outline-none focus:ring-2 focus:ring-pink-400">
+            <button onclick="joinRoomFromMenu()" class="px-5 bg-slate-700 hover:bg-slate-800 text-white font-bold rounded-2xl text-sm transition active:scale-95 whitespace-nowrap">
+                加入房间
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ================= 联机等待大厅 ================= -->
+<div id="view-room-lobby" class="w-full max-w-md bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl my-auto space-y-5 hidden">
+    <div class="text-center">
+        <div class="text-xs font-bold text-slate-400">房间代码</div>
+        <div id="lobby-room-code" class="text-3xl font-black text-pink-500 tracking-wider my-1">---</div>
+        <p class="text-[11px] text-slate-400">把房间码发给好友，在另一台设备输入加入</p>
+    </div>
+
+    <div class="space-y-2.5 bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+        <div class="text-xs font-bold text-slate-400 mb-1">选择颜色/身份位：</div>
+        
+        <div class="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-800 border border-rose-400/30">
+            <span class="text-xs font-bold text-rose-500">🔴 玩家 1 (红)</span>
+            <span id="slot-name-p1" class="text-xs font-bold text-slate-700 dark:text-slate-200">空缺</span>
+            <button id="btn-select-p1" onclick="claimSlot('p1')" class="px-2.5 py-1 bg-rose-500 text-white rounded-lg text-[10px] font-bold">选择</button>
+        </div>
+        <div class="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-800 border border-blue-400/30">
+            <span class="text-xs font-bold text-blue-500">🔵 玩家 2 (蓝)</span>
+            <span id="slot-name-p2" class="text-xs font-bold text-slate-700 dark:text-slate-200">空缺</span>
+            <button id="btn-select-p2" onclick="claimSlot('p2')" class="px-2.5 py-1 bg-blue-500 text-white rounded-lg text-[10px] font-bold">选择</button>
+        </div>
+        <div class="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-800 border border-emerald-400/30">
+            <span class="text-xs font-bold text-emerald-500">🟢 玩家 3 (绿)</span>
+            <span id="slot-name-p3" class="text-xs font-bold text-slate-700 dark:text-slate-200">空缺</span>
+            <button id="btn-select-p3" onclick="claimSlot('p3')" class="px-2.5 py-1 bg-emerald-500 text-white rounded-lg text-[10px] font-bold">选择</button>
+        </div>
+    </div>
+
+    <div class="space-y-2">
+        <button id="btn-start-game" onclick="hostStartMultiGame()" class="w-full py-3.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold rounded-2xl shadow-lg shadow-pink-500/25 transition active:scale-95 text-sm hidden">
+            🚀 房主开始游戏
+        </button>
+        <button id="btn-fill-ai" onclick="toggleAIFill()" class="w-full py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 font-bold rounded-2xl text-xs transition hidden">
+            🤖 用机器人补齐空位
+        </button>
+        <button onclick="leaveRoom()" class="w-full py-2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            退出房间
+        </button>
+    </div>
+</div>
+
+<!-- ================= 游戏对局界面 ================= -->
+<div id="view-game" class="w-full max-w-4xl flex flex-col items-center justify-center hidden my-auto">
+    <div class="w-full max-w-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-lg flex gap-3 justify-around mb-4">
+        <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p1-card">
+            <div id="p1-name" class="font-bold text-rose-500 dark:text-rose-400 text-xs">玩家 1</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">金币: <span id="p1-coins" class="font-extrabold">30</span></div>
+            <div class="text-[11px] text-slate-500">地毯: <span id="p1-carpets" class="font-extrabold">15</span></div>
+        </div>
+        <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p2-card">
+            <div id="p2-name" class="font-bold text-blue-500 dark:text-blue-400 text-xs">玩家 2</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">金币: <span id="p2-coins" class="font-extrabold">30</span></div>
+            <div class="text-[11px] text-slate-500">地毯: <span id="p2-carpets" class="font-extrabold">15</span></div>
+        </div>
+        <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p3-card">
+            <div id="p3-name" class="font-bold text-emerald-500 dark:text-emerald-400 text-xs">玩家 3</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">金币: <span id="p3-coins" class="font-extrabold">30</span></div>
+            <div class="text-[11px] text-slate-500">地毯: <span id="p3-carpets" class="font-extrabold">15</span></div>
+        </div>
+    </div>
+
+    <div class="w-full flex flex-col md:flex-row gap-6 items-center md:items-start justify-center">
+      <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl">
+          <div class="board-outer grid grid-cols-7 gap-2" id="board"></div>
+      </div>
+
+      <div class="controls bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl flex flex-col gap-4 w-full md:w-80">
+        <div id="turn-indicator" class="text-center font-bold text-slate-700 dark:text-slate-200 text-base">轮到：玩家 1</div>
+        
+        <div id="dir-select" class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-400">移动策略选择：</label>
+          <select id="dir-input" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400">
+            <option value="forward">直行</option>
+            <option value="left">左转</option>
+            <option value="right">右转</option>
+          </select>
+        </div>
+
+        <button id="roll-btn" class="w-full py-3 px-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white font-bold rounded-xl shadow-lg shadow-pink-500/25 transition duration-200 active:scale-95 text-sm flex items-center justify-center gap-2">
+            <i class="fa-solid fa-dice"></i> 掷骰子
+        </button>
+        
+        <div class="text-xs text-slate-500 dark:text-slate-400 text-center bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200/50 dark:border-slate-700/50" id="action-hint">步骤：请选择策略并掷骰子</div>
+        
+        <div class="log-box bg-slate-50 dark:bg-slate-900/80 rounded-xl p-3 h-36 overflow-y-auto text-xs font-mono text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/50 space-y-1" id="log"></div>
+      </div>
+    </div>
+</div>
+
+<!-- 游戏结算弹窗 -->
+<div id="victoryModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl max-w-xs w-full p-5 text-center shadow-2xl animate-pop text-slate-800 dark:text-slate-100">
+        <h3 class="text-xl font-extrabold mb-1">游戏结算</h3>
+        <div id="modal-result-text" class="text-xs text-slate-600 dark:text-slate-300 my-3 text-left bg-slate-50 dark:bg-slate-900/80 p-3 rounded-xl border border-slate-200 dark:border-slate-700/50 space-y-2"></div>
+        <button onclick="returnToMainMenu()" class="w-full py-2.5 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold rounded-xl text-xs shadow-md transition">
+            返回主菜单
+        </button>
+    </div>
+</div>
+
+<script>
+// --- 音效与主题系统 ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+function initAudio() { if (!audioCtx) audioCtx = new AudioContext(); }
+function playTone(freq, type, duration, gainVal = 0.1) {
+    try {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
+    } catch (e) {}
+}
+function playSound(type) {
+    initAudio();
+    if (type === 'move') playTone(300, 'sine', 0.08, 0.05);
+    else if (type === 'rent') playTone(180, 'sawtooth', 0.15, 0.1);
+    else if (type === 'carpet') playTone(523, 'triangle', 0.12, 0.12);
+    else if (type === 'win') { [392, 523, 659, 784].forEach((f, idx) => setTimeout(() => playTone(f, 'triangle', 0.2, 0.15), idx * 90)); }
+}
+
+function initTheme() {
+    const btn = document.getElementById('themeToggleBtn');
+    const icon = document.getElementById('themeIcon');
+    const saved = localStorage.getItem('unicorn_theme') || 'dark';
+    if (saved === 'dark') { document.documentElement.classList.add('dark'); icon.className = 'fa-solid fa-sun text-lg text-amber-400'; }
+    else { document.documentElement.classList.remove('dark'); icon.className = 'fa-solid fa-moon text-lg text-slate-500'; }
+    btn.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('unicorn_theme', isDark ? 'dark' : 'light');
+        icon.className = isDark ? 'fa-solid fa-sun text-lg text-amber-400' : 'fa-solid fa-moon text-lg text-slate-500';
+    });
+}
+
+// --- 游戏核心变量 ---
+const SIZE = 7;
+let boardData = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null).map(() => []));
+let unicorn = { x: 3, y: 3, dir: 0 };
+const DIR_VECTORS = [{x:0, y:1}, {x:1, y:0}, {x:0, y:-1}, {x:-1, y:0}];
+const DIR_SYMBOLS = ['↑', '→', '↓', '←'];
+
+let isPVP = false;
+let isHost = false;
+let myRole = 'p1';
+let currentRoomCode = '';
+
+let roomSlots = {
+    p1: { type: 'empty', name: '空缺' },
+    p2: { type: 'empty', name: '空缺' },
+    p3: { type: 'empty', name: '空缺' }
+};
+
+let players = {
+  p1: { coins: 30, carpets: 15, name: '玩家 1' },
+  p2: { coins: 30, carpets: 15, name: '机器人1' },
+  p3: { coins: 30, carpets: 15, name: '机器人2' }
+};
+const playerKeys = ['p1', 'p2', 'p3'];
+let currentPlayerIndex = 0;
+let currentPlayer = playerKeys[currentPlayerIndex];
+
+let gameState = 'MOVE_SELECT';
+let selectedCells = [];
+let allowedRange = 1;
+
+let mqttClient = null;
+
+function switchView(viewId) {
+    ['view-main-menu', 'view-room-lobby', 'view-game'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+    });
+    document.getElementById('exit-game-btn').classList.add('hidden');
+    if (viewId === 'view-game' && !isPVP) {
+        document.getElementById('exit-game-btn').classList.remove('hidden');
+    }
+    document.getElementById(viewId).classList.remove('hidden');
+}
+
+// 完全清理并返回主菜单（完美实现退出清空进度）
+function returnToMainMenu() {
+    closeMQTT();
+    document.getElementById('victoryModal').classList.add('hidden');
+    
+    boardData = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null).map(() => []));
+    unicorn = { x: 3, y: 3, dir: 0 };
+    currentPlayerIndex = 0;
+    currentPlayer = playerKeys[0];
+    gameState = 'MOVE_SELECT';
+    selectedCells = [];
+    
+    players = {
+      p1: { coins: 30, carpets: 15, name: '玩家 1' },
+      p2: { coins: 30, carpets: 15, name: '机器人1' },
+      p3: { coins: 30, carpets: 15, name: '机器人2' }
+    };
+    roomSlots = { p1: { type: 'empty', name: '空缺' }, p2: { type: 'empty', name: '空缺' }, p3: { type: 'empty', name: '空缺' } };
+    
+    const logEl = document.getElementById('log');
+    if (logEl) logEl.innerHTML = '';
+
+    switchView('view-main-menu');
+}
+
+function closeMQTT() {
+    if (mqttClient) {
+        try { mqttClient.end(true); } catch(e) {}
+        mqttClient = null;
+    }
+}
+
+// === 单人 PVC 模式 ===
+function startPVCGame() {
+    returnToMainMenu();
+    const nickname = document.getElementById('player-nickname').value.trim() || '冒险者';
+    isPVP = false;
+    isHost = true;
+    myRole = 'p1';
+    
+    players.p1 = { coins: 30, carpets: 15, name: nickname };
+    players.p2 = { coins: 30, carpets: 15, name: '机器人1' };
+    players.p3 = { coins: 30, carpets: 15, name: '机器人2' };
+
+    roomSlots = {
+        p1: { type: 'player', name: nickname },
+        p2: { type: 'ai', name: '机器人1' },
+        p3: { type: 'ai', name: '机器人2' }
+    };
+
+    setupGameUI();
+}
+
+// === 多人 PVP 模式 (带极速 1 秒房间号校验) ===
+function showCreateRoomView() {
+    returnToMainMenu();
+    const nickname = document.getElementById('player-nickname').value.trim() || '房主';
+    isPVP = true;
+    isHost = true;
+    myRole = 'p1';
+    currentRoomCode = Math.floor(100 + Math.random() * 900).toString();
+    
+    roomSlots = {
+        p1: { type: 'player', name: nickname },
+        p2: { type: 'empty', name: '空缺' },
+        p3: { type: 'empty', name: '空缺' }
+    };
+
+    connectMQTTAndJoinLobby(true);
+}
+
+function joinRoomFromMenu() {
+    const code = document.getElementById('join-room-input').value.trim();
+    if (!code) { alert('请输入房间码'); return; }
+    
+    returnToMainMenu();
+    isPVP = true;
+    isHost = false;
+    currentRoomCode = code;
+    myRole = '';
+
+    connectMQTTAndJoinLobby(false);
+}
+
+function connectMQTTAndJoinLobby(isCreating) {
+    document.getElementById('lobby-room-code').innerText = currentRoomCode;
+
+    closeMQTT();
+    mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+    const topic = `unicorn_room_v8_${currentRoomCode}`;
+
+    let roomVerified = false;
+
+    mqttClient.on('connect', () => {
+        if (!mqttClient) return;
+        mqttClient.subscribe(topic, (err) => {
+            if (err) return;
+            if (isCreating) {
+                switchView('view-room-lobby');
+                updateLobbyUI();
+            } else {
+                sendNetworkMsg('PING_ROOM', {});
+                // 1 秒内无响应立刻弹窗提示房间不存在
+                setTimeout(() => {
+                    if (!roomVerified) {
+                        alert('未找到此房间，请检查房间码！');
+                        closeMQTT();
+                        returnToMainMenu();
+                    }
+                }, 1000);
+            }
+        });
+    });
+
+    mqttClient.on('message', (t, payload) => {
+        try {
+            const msg = JSON.parse(payload.toString());
+            if (msg.type === 'PONG_ROOM' && !isCreating) {
+                roomVerified = true;
+                switchView('view-room-lobby');
+                const nickname = document.getElementById('player-nickname').value.trim() || '路人';
+                sendNetworkMsg('JOIN_ROOM', { nickname });
+            } else {
+                roomVerified = true;
+                handleLobbyNetworkMsg(msg);
+            }
+        } catch(e) {}
+    });
+}
+
+function sendNetworkMsg(type, data) {
+    if (mqttClient && mqttClient.connected) {
+        mqttClient.publish(`unicorn_room_v8_${currentRoomCode}`, JSON.stringify({ sender: myRole, senderName: document.getElementById('player-nickname').value, type, data }));
+    }
+}
+
+function claimSlot(roleKey) {
+    const nickname = document.getElementById('player-nickname').value.trim() || '玩家';
+    for (let k of playerKeys) {
+        if (roomSlots[k].type === 'player' && roomSlots[k].name === nickname) {
+            roomSlots[k] = { type: 'empty', name: '空缺' };
+        }
+    }
+    roomSlots[roleKey] = { type: 'player', name: nickname };
+    myRole = roleKey;
+
+    if (isHost) broadcastRoomState();
+    else sendNetworkMsg('UPDATE_SLOTS', { roomSlots, assignedRole: roleKey });
+    updateLobbyUI();
+}
+
+function broadcastRoomState() {
+    sendNetworkMsg('ROOM_SYNC', { roomSlots });
+}
+
+function handleLobbyNetworkMsg(msg) {
+    if (msg.type === 'PING_ROOM' && isHost) {
+        sendNetworkMsg('PONG_ROOM', { roomSlots });
+    } else if (msg.type === 'JOIN_ROOM' && isHost) {
+        let assigned = '';
+        for (let k of playerKeys) {
+            if (roomSlots[k].type === 'empty') {
+                roomSlots[k] = { type: 'player', name: msg.data.nickname };
+                assigned = k;
+                break;
+            }
+        }
+        broadcastRoomState();
+        sendNetworkMsg('ASSIGN_ROLE', { assignedRole: assigned, roomSlots });
+    } else if (msg.type === 'ASSIGN_ROLE' && !isHost) {
+        roomSlots = msg.data.roomSlots;
+        if (msg.data.assignedRole) myRole = msg.data.assignedRole;
+        updateLobbyUI();
+    } else if (msg.type === 'UPDATE_SLOTS' && isHost) {
+        roomSlots = msg.data.roomSlots;
+        broadcastRoomState();
+    } else if (msg.type === 'ROOM_SYNC') {
+        roomSlots = msg.data.roomSlots;
+        updateLobbyUI();
+    } else if (msg.type === 'START_GAME') {
+        players = msg.data.players;
+        roomSlots = msg.data.roomSlots;
+        setupGameUI();
+    } else if (msg.type === 'ACTION_ROLL' && msg.sender !== myRole) {
+        // PVP 同步：收到对方掷骰子的动作与步数，本地直接同步执行
+        document.getElementById('dir-input').value = msg.data.actionChoice;
+        executeTurnWithSteps(msg.data.actionChoice, msg.data.steps);
+    } else if (msg.type === 'ACTION_CARPET' && msg.sender !== myRole) {
+        // PVP 同步：收到对方铺地毯坐标，本地直接同步执行
+        if (validateAndPlaceCarpet(msg.data.pos1, msg.data.pos2, msg.sender)) {
+            endTurn();
+        }
+    }
+}
+
+function toggleAIFill() {
+    if (!isHost) return;
+    for (let k of playerKeys) {
+        if (roomSlots[k].type === 'empty') {
+            roomSlots[k] = { type: 'ai', name: `机器人(${k.toUpperCase()})` };
+        }
+    }
+    broadcastRoomState();
+    updateLobbyUI();
+}
+
+function updateLobbyUI() {
+    playerKeys.forEach(k => {
+        const slot = roomSlots[k];
+        const nameEl = document.getElementById(`slot-name-${k}`);
+        const btnEl = document.getElementById(`btn-select-${k}`);
+        
+        nameEl.innerText = slot.name;
+        if (slot.type === 'empty') {
+            btnEl.classList.remove('hidden');
+            btnEl.innerText = '选择';
+        } else if (slot.type === 'ai') {
+            btnEl.classList.add('hidden');
+        } else {
+            if (slot.name === (document.getElementById('player-nickname').value.trim())) {
+                btnEl.classList.add('hidden');
+                nameEl.innerText += ' (你)';
+                myRole = k;
+            } else {
+                btnEl.classList.add('hidden');
+            }
+        }
+    });
+
+    if (isHost) {
+        document.getElementById('btn-start-game').classList.remove('hidden');
+        document.getElementById('btn-fill-ai').classList.remove('hidden');
+    }
+}
+
+function hostStartMultiGame() {
+    if (!isHost) return;
+    playerKeys.forEach(k => {
+        if (roomSlots[k].type === 'empty') {
+            roomSlots[k] = { type: 'ai', name: `机器人(${k.toUpperCase()})` };
+        }
+        players[k] = { coins: 30, carpets: 15, name: roomSlots[k].name };
+    });
+
+    sendNetworkMsg('START_GAME', { players, roomSlots });
+    setupGameUI();
+}
+
+function leaveRoom() {
+    returnToMainMenu();
+}
+
+// === 游戏逻辑 (严格还原最稳定的单机版机制) ===
+function setupGameUI() {
+    switchView('view-game');
+    document.getElementById('p1-name').innerText = players.p1.name;
+    document.getElementById('p2-name').innerText = players.p2.name;
+    document.getElementById('p3-name').innerText = players.p3.name;
+    createBoardDOM();
+    render();
+    checkTurnStart();
+}
+
+const boardEl = document.getElementById('board');
+const logEl = document.getElementById('log');
+
+function createBoardDOM() {
+  boardEl.innerHTML = '';
+  for (let r = SIZE - 1; r >= 0; r--) {
+    for (let c = 0; c < SIZE; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell w-12 h-12 sm:w-14 sm:h-14 bg-slate-100 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700/50 flex items-center justify-center relative cursor-default shadow-sm';
+      cell.dataset.x = c; cell.dataset.y = r;
+      cell.addEventListener('click', () => handleCellClick(c, r));
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+function log(msg) { 
+  if (logEl) {
+      logEl.innerHTML += `<div>${msg}</div>`; 
+      logEl.scrollTop = logEl.scrollHeight; 
+  }
+}
+
+function render() {
+  document.querySelectorAll('.cell').forEach(el => {
+    const x = parseInt(el.dataset.x); const y = parseInt(el.dataset.y);
+    const stack = boardData[y][x];
+    el.removeAttribute('data-owner'); el.innerHTML = ''; el.classList.remove('highlight', 'selected');
+
+    if (stack.length > 0) el.setAttribute('data-owner', stack[stack.length - 1].owner);
+
+    if (x === unicorn.x && y === unicorn.y) {
+      el.innerHTML = `
+        <div class="unicorn-container flex items-center justify-center gap-1 text-2xl animate-float">
+          <span>🦄</span>
+          <span class="dir-indicator text-xs font-black text-rose-500">${DIR_SYMBOLS[unicorn.dir]}</span>
+        </div>
+      `;
+    }
+  });
+
+  playerKeys.forEach(k => {
+    document.getElementById(`${k}-coins`).innerText = players[k].coins;
+    document.getElementById(`${k}-carpets`).innerText = players[k].carpets;
+    const card = document.getElementById(`${k}-card`);
+    if (currentPlayer === k) card.className = `player-info flex-1 text-center p-2 rounded-xl transition-all bg-white dark:bg-slate-900 ring-2 ring-pink-400`;
+    else card.className = `player-info flex-1 text-center p-2 rounded-xl opacity-70`;
+  });
+
+  document.getElementById('turn-indicator').innerText = `轮到：${players[currentPlayer].name}`;
+}
+
+// 原始移动折返算法
+function moveUnicornStep() {
+  let vec = DIR_VECTORS[unicorn.dir];
+  let nx = unicorn.x + vec.x;
+  let ny = unicorn.y + vec.y;
+
+  if (ny >= SIZE) {
+    if (unicorn.x === 0) { unicorn.x = 1; unicorn.y = SIZE - 1; unicorn.dir = 1; }
+    else {
+      if (unicorn.x === 1) unicorn.x = 2;
+      else if (unicorn.x === 2) unicorn.x = 1;
+      else if (unicorn.x === 3) unicorn.x = 4;
+      else if (unicorn.x === 4) unicorn.x = 3;
+      else if (unicorn.x === 5) unicorn.x = 6;
+      else if (unicorn.x === 6) { unicorn.x = 5; unicorn.y = SIZE - 1; unicorn.dir = 2; return; }
+      unicorn.y = SIZE - 1; unicorn.dir = 2;
+    }
+  } else if (ny < 0) {
+    if (unicorn.x === 6) { unicorn.x = 5; unicorn.y = 0; unicorn.dir = 3; }
+    else if (unicorn.x === 0) { unicorn.x = 0; unicorn.y = 1; unicorn.dir = 0; }
+    else {
+      if (unicorn.x === 1) unicorn.x = 0;
+      else if (unicorn.x === 2) unicorn.x = 3;
+      else if (unicorn.x === 3) unicorn.x = 2;
+      else if (unicorn.x === 4) unicorn.x = 5;
+      else if (unicorn.x === 5) unicorn.x = 4;
+      unicorn.y = 0; unicorn.dir = 0;
+    }
+  } else if (nx < 0) {
+    if (unicorn.y === 0) { unicorn.x = 0; unicorn.y = 1; unicorn.dir = 1; }
+    else if (unicorn.y === SIZE - 1) { unicorn.x = 0; unicorn.y = SIZE - 2; unicorn.dir = 2; }
+    else {
+      if (unicorn.y === 1) unicorn.y = 0;
+      else if (unicorn.y === 2) unicorn.y = 3;
+      else if (unicorn.y === 3) unicorn.y = 2;
+      else if (unicorn.y === 4) unicorn.y = 5;
+      else if (unicorn.y === 5) unicorn.y = 4;
+      else if (unicorn.y === 6) unicorn.y = 5;
+      unicorn.x = 0; unicorn.dir = 1;
+    }
+  } else if (nx >= SIZE) {
+    if (unicorn.y === SIZE - 1) { unicorn.x = SIZE - 1; unicorn.y = SIZE - 2; unicorn.dir = 2; }
+    else if (unicorn.y === 0) { unicorn.x = SIZE - 1; unicorn.y = 1; unicorn.dir = 0; }
+    else {
+      if (unicorn.y === 0) unicorn.y = 6;
+      else if (unicorn.y === 1) unicorn.y = 2;
+      else if (unicorn.y === 2) unicorn.y = 1;
+      else if (unicorn.y === 3) unicorn.y = 4;
+      else if (unicorn.y === 4) unicorn.y = 3;
+      else if (unicorn.y === 5) unicorn.y = 6;
+      unicorn.x = SIZE - 1; unicorn.dir = 3;
+    }
+  } else {
+    unicorn.x = nx;
+    unicorn.y = ny;
+  }
+}
+
+document.getElementById('roll-btn').addEventListener('click', () => {
+  if (gameState !== 'MOVE_SELECT' || currentPlayer !== myRole) return;
+  
+  const actionChoice = document.getElementById('dir-input').value;
+  const steps = Math.floor(Math.random() * 4) + 1;
+
+  if (isPVP) {
+      sendNetworkMsg('ACTION_ROLL', { actionChoice, steps });
+  }
+  executeTurnWithSteps(actionChoice, steps);
+});
+
+function executeTurnWithSteps(actionChoice, steps) {
+  let actionText = "直行";
+  if (actionChoice === 'left') { unicorn.dir = (unicorn.dir + 3) % 4; actionText = "向左转"; }
+  else if (actionChoice === 'right') { unicorn.dir = (unicorn.dir + 1) % 4; actionText = "向右转"; }
+
+  log(`${players[currentPlayer].name} 选择了【${actionText}】，掷出了 <b>${steps}</b> 点！`);
+
+  document.getElementById('roll-btn').disabled = true;
+  gameState = 'ANIMATING';
+
+  let currentStep = 0;
+  let stepInterval = setInterval(() => {
+    if (currentStep < steps) {
+      moveUnicornStep();
+      render();
+      playSound('move');
+      currentStep++;
+    } else {
+      clearInterval(stepInterval);
+      checkRent();
+      gameState = 'CARPET_SELECT';
+      
+      allowedRange = hasValidPairsInBox(1) ? 1 : 2;
+      if (allowedRange === 1) {
+        document.getElementById('action-hint').innerText = "步骤：请在九宫格内选择 2 个相邻格子铺地毯";
+      } else {
+        document.getElementById('action-hint').innerText = "⚠️ 九宫格无解！已扩展至 5x5 范围";
+      }
+      highlightValidCarpetOptions();
+
+      const slotType = roomSlots[currentPlayer].type;
+      if (slotType === 'ai' && (isHost || !isPVP)) {
+        setTimeout(() => aiExecuteCarpet(currentPlayer), 1000);
+      } else if (currentPlayer !== myRole) {
+        document.getElementById('action-hint').innerText = `等待 ${players[currentPlayer].name} 铺地毯...`;
+      }
+    }
+  }, 300);
+}
+
+function checkRent() {
+  const stack = boardData[unicorn.y][unicorn.x];
+  if (stack.length === 0) return;
+
+  const topOwner = stack[stack.length - 1].owner;
+  if (topOwner === currentPlayer) return;
+
+  let visited = Array(SIZE).fill(false).map(() => Array(SIZE).fill(false));
+  let queue = [{x: unicorn.x, y: unicorn.y}];
+  visited[unicorn.y][unicorn.x] = true;
+  let areaSize = 0;
+
+  while (queue.length > 0) {
+    let curr = queue.shift();
+    areaSize++;
+
+    const neighbors = [
+      {x: curr.x+1, y: curr.y}, {x: curr.x-1, y: curr.y},
+      {x: curr.x, y: curr.y+1}, {x: curr.x, y: curr.y-1}
+    ];
+
+    for (let n of neighbors) {
+      if (n.x >= 0 && n.x < SIZE && n.y >= 0 && n.y < SIZE && !visited[n.y][n.x]) {
+        const nStack = boardData[n.y][n.x];
+        if (nStack.length > 0 && nStack[nStack.length - 1].owner === topOwner) {
+          visited[n.y][n.x] = true;
+          queue.push(n);
+        }
+      }
+    }
+  }
+
+  playSound('rent');
+  log(`⚠️ 踩中 ${players[topOwner].name} 的地盘！连通面积 ${areaSize} 格，支付 ${areaSize} 金币租金！`);
+  players[currentPlayer].coins -= areaSize;
+  players[topOwner].coins += areaSize;
+  render();
+}
+
+function checkCarpetValidity(pos1, pos2) {
+  const s1 = boardData[pos1.y][pos1.x];
+  const s2 = boardData[pos2.y][pos2.x];
+  let top1 = s1.length > 0 ? s1[s1.length - 1].owner : null;
+  let top2 = s2.length > 0 ? s2[s2.length - 1].owner : null;
+  return !(top1 !== null && top2 !== null && top1 === top2);
+}
+
+function hasValidPairsInBox(range) {
+  let neighbors = [];
+  for (let dx = -range; dx <= range; dx++) {
+    for (let dy = -range; dy <= range; dy++) {
+      let nx = unicorn.x + dx;
+      let ny = unicorn.y + dy;
+      if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && !(nx === unicorn.x && ny === unicorn.y)) {
+        neighbors.push({x: nx, y: ny});
+      }
+    }
+  }
+
+  for (let i = 0; i < neighbors.length; i++) {
+    for (let j = i + 1; j < neighbors.length; j++) {
+      let p1 = neighbors[i], p2 = neighbors[j];
+      if (Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) === 1) {
+        if (range === 2) {
+          const p1In3 = Math.abs(p1.x - unicorn.x) <= 1 && Math.abs(p1.y - unicorn.y) <= 1;
+          const p2In3 = Math.abs(p2.x - unicorn.x) <= 1 && Math.abs(p2.y - unicorn.y) <= 1;
+          if (!p1In3 && !p2In3) continue;
+        }
+        if (checkCarpetValidity(p1, p2)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function highlightValidCarpetOptions() {
+  selectedCells = [];
+  document.querySelectorAll('.cell').forEach(el => {
+    const x = parseInt(el.dataset.x);
+    const y = parseInt(el.dataset.y);
+    if (Math.abs(x - unicorn.x) <= allowedRange && Math.abs(y - unicorn.y) <= allowedRange && !(x === unicorn.x && y === unicorn.y)) {
+      el.classList.add('highlight');
+    }
+  });
+}
+
+function handleCellClick(x, y) {
+  if (gameState !== 'CARPET_SELECT' || currentPlayer !== myRole) return;
+  if (x === unicorn.x && y === unicorn.y) return;
+  if (Math.abs(x - unicorn.x) > allowedRange || Math.abs(y - unicorn.y) > allowedRange) return;
+
+  if (selectedCells.length === 0) {
+    selectedCells.push({x, y});
+    getCellEl(x, y).classList.add('selected');
+  } else if (selectedCells.length === 1) {
+    const first = selectedCells[0];
+    const firstIn3 = Math.abs(first.x - unicorn.x) <= 1 && Math.abs(first.y - unicorn.y) <= 1;
+    const secondIn3 = Math.abs(x - unicorn.x) <= 1 && Math.abs(y - unicorn.y) <= 1;
+    let validRangeRule = (allowedRange === 1) ? (firstIn3 && secondIn3) : (firstIn3 || secondIn3);
+
+    if (Math.abs(first.x - x) + Math.abs(first.y - y) === 1 && validRangeRule) {
+      const pos1 = selectedCells[0], pos2 = {x, y};
+      if (validateAndPlaceCarpet(pos1, pos2, myRole)) {
+        if (isPVP) {
+            sendNetworkMsg('ACTION_CARPET', { pos1, pos2 });
+        }
+        endTurn();
+      } else {
+        resetSelection();
+      }
+    } else {
+      log("❌ 位置不符合当前范围规则！");
+      resetSelection();
+    }
+  }
+}
+
+function resetSelection() {
+  selectedCells = [];
+  document.querySelectorAll('.cell.selected').forEach(e => e.classList.remove('selected'));
+}
+
+function getCellEl(x, y) {
+  return document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
+}
+
+function validateAndPlaceCarpet(pos1, pos2, playerKey) {
+  if (!checkCarpetValidity(pos1, pos2)) {
+    if (playerKey === myRole) log("❌ 非法铺设：不能同时覆盖两格最上层都是同色地毯！");
+    return false;
+  }
+
+  const carpetId = `${playerKey}_${Date.now()}_${Math.random()}`;
+  boardData[pos1.y][pos1.x].push({ owner: playerKey, id: carpetId });
+  boardData[pos2.y][pos2.x].push({ owner: playerKey, id: carpetId });
+
+  players[playerKey].carpets--;
+  playSound('carpet');
+  log(`${players[playerKey].name} 铺设地毯于 (${pos1.x},${pos1.y}) 和 (${pos2.x},${pos2.y})`);
+  return true;
+}
+
+function aiExecuteCarpet(aiKey) {
+  let rangeToUse = allowedRange;
+  let neighbors = [];
+  for (let dx = -rangeToUse; dx <= rangeToUse; dx++) {
+    for (let dy = -rangeToUse; dy <= rangeToUse; dy++) {
+      let nx = unicorn.x + dx;
+      let ny = unicorn.y + dy;
+      if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && !(nx === unicorn.x && ny === unicorn.y)) {
+        neighbors.push({x: nx, y: ny});
+      }
+    }
+  }
+
+  let validPairs = [];
+  for (let i = 0; i < neighbors.length; i++) {
+    for (let j = i + 1; j < neighbors.length; j++) {
+      let p1 = neighbors[i], p2 = neighbors[j];
+      if (Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) === 1) {
+        if (rangeToUse === 2) {
+          const p1In3 = Math.abs(p1.x - unicorn.x) <= 1 && Math.abs(p1.y - unicorn.y) <= 1;
+          const p2In3 = Math.abs(p2.x - unicorn.x) <= 1 && Math.abs(p2.y - unicorn.y) <= 1;
+          if (!p1In3 && !p2In3) continue;
+        }
+        if (checkCarpetValidity(p1, p2)) validPairs.push([p1, p2]);
+      }
+    }
+  }
+
+  if (validPairs.length > 0) {
+    const choice = validPairs[Math.floor(Math.random() * validPairs.length)];
+    validateAndPlaceCarpet(choice[0], choice[1], aiKey);
+    if (isPVP && isHost) {
+mqttClient.publish(`unicorn_room_v8_${currentRoomCode}`, JSON.stringify({ 
+            sender: aiKey, // 这里关键！不能是房主自己的 myRole，必须是 aiKey
+            type: 'ACTION_CARPET', 
+            data: { pos1: choice[0], pos2: choice[1] } 
+        }));
+    }
+  } else {
+    log(`${players[aiKey].name} 无合法位置可铺，跳过`);
+  }
+
+  endTurn();
+}
+
+function endTurn() {
+  resetSelection();
+
+  let allOutOfCarpets = playerKeys.every(k => players[k].carpets === 0);
+  if (allOutOfCarpets) {
+    checkGameOver();
+    return;
+  }
+
+  // 关键修复：先切换到下一个玩家！
+  currentPlayerIndex = (currentPlayerIndex + 1) % playerKeys.length;
+  currentPlayer = playerKeys[currentPlayerIndex];
+
+  // 切换完成后，再执行 render()，此时“轮到：”就能精准显示当前该行动的玩家名称了！
+  render();
+
+  gameState = 'MOVE_SELECT';
+  checkTurnStart();
+}
+
+function checkTurnStart() {
+  const isMyTurn = (currentPlayer === myRole);
+  const slotType = roomSlots[currentPlayer].type;
+  const isSlotAI = (slotType === 'ai');
+
+  document.getElementById('roll-btn').disabled = (!isMyTurn || isSlotAI);
+  document.getElementById('action-hint').innerText = isSlotAI ? `🤖 ${players[currentPlayer].name} 思考中...` : (isMyTurn ? "步骤：请选择策略并掷骰子" : `等待 ${players[currentPlayer].name} 操作...`);
+
+  if (isSlotAI && (isHost || !isPVP)) {
+    setTimeout(() => {
+      const choices = ['forward', 'left', 'right'];
+      const actionChoice = choices[Math.floor(Math.random() * choices.length)];
+      document.getElementById('dir-input').value = actionChoice;
+      const steps = Math.floor(Math.random() * 4) + 1;
+      if (isPVP) {
+          sendNetworkMsg('ACTION_ROLL', { actionChoice, steps });
+      }
+      executeTurnWithSteps(actionChoice, steps);
+    }, 1000);
+  }
+}
+
+function checkGameOver() {
+  gameState = 'GAME_OVER';
+  document.getElementById('roll-btn').disabled = true;
+  playSound('win');
+
+  let areas = {};
+  playerKeys.forEach(k => areas[k] = 0);
+
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const stack = boardData[r][c];
+      if (stack.length > 0) {
+        areas[stack[stack.length - 1].owner]++;
+      }
+    }
+  }
+
+  let sorted = [...playerKeys].sort((a, b) => {
+    if (players[b].coins !== players[a].coins) return players[b].coins - players[a].coins;
+    return areas[b] - areas[a];
+  });
+
+  let winnerKey = sorted[0];
+  let resultHTML = "";
+  sorted.forEach((k, index) => {
+    let rankText = `第 ${index + 1} 名`;
+    resultHTML += `<div class="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-700/50 last:border-0"><span class="font-semibold text-slate-500">${rankText} <b>${players[k].name}</b></span>: <span class="text-pink-500 font-bold">${players[k].coins} 金币</span></div>`;
+  });
+  
+  document.getElementById('modal-result-text').innerHTML = `
+    <div class="mb-2 font-extrabold text-pink-500 text-xs text-center">最终胜者：${players[winnerKey].name}！</div>
+    ${resultHTML}
+  `;
+  document.getElementById('victoryModal').classList.remove('hidden');
+}
+
+window.onload = () => {
+    initTheme();
+};
+</script>
+</body>
+</html>
