@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商业独角兽</title>
+<title>商业独角兽 · 精致版</title>
 <!-- 引入 Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
 <!-- 引入 FontAwesome 图标 -->
@@ -110,7 +110,6 @@
 <!-- Main Game Layout -->
 <div class="w-full max-w-4xl flex flex-col md:flex-row gap-6 items-center md:items-start justify-center my-auto">
   
-  <!-- 恢复正常大小的 7x7 棋盘 (格子设为 56px) -->
   <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl transition-colors">
       <div class="board-outer grid grid-cols-7 gap-2" id="board"></div>
   </div>
@@ -237,7 +236,6 @@ function createBoardDOM() {
   for (let r = SIZE - 1; r >= 0; r--) {
     for (let c = 0; c < SIZE; c++) {
       const cell = document.createElement('div');
-      // 恢复每个格子的大小 (w-14 h-14 即 56px)
       cell.className = 'cell w-14 h-14 bg-slate-100 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700/50 flex flex-col items-center justify-center relative cursor-default shadow-sm';
       cell.dataset.x = c;
       cell.dataset.y = r;
@@ -292,26 +290,46 @@ function render() {
   document.getElementById('turn-indicator').innerText = `轮到：${players[currentPlayer].name}`;
 }
 
+// --- 完美修正后的蛇形移动与撞墙跨步逻辑 (左下0,0 右上6,6笛卡尔坐标系) ---
 function moveUnicornStep() {
   let vec = DIR_VECTORS[unicorn.dir];
   let nx = unicorn.x + vec.x;
   let ny = unicorn.y + vec.y;
 
+  // 上边界 (y = 6)
   if (ny >= SIZE) {
-    if (unicorn.x === 0) { unicorn.dir = 1; }
-    else {
+    if (unicorn.x === 0) { 
+      unicorn.x = 1; 
+      unicorn.y = SIZE - 1; 
+      unicorn.dir = 1; // (0,6) 向上撞 -> 拐到 (1,6) 并向右
+    } else {
       if (unicorn.x === 1) unicorn.x = 2;
       else if (unicorn.x === 2) unicorn.x = 1;
       else if (unicorn.x === 3) unicorn.x = 4;
       else if (unicorn.x === 4) unicorn.x = 3;
       else if (unicorn.x === 5) unicorn.x = 6;
-      else if (unicorn.x === 6) { unicorn.x = 5; unicorn.y = SIZE - 1; unicorn.dir = 2; return; }
+      else if (unicorn.x === 6) { 
+        unicorn.x = 5; 
+        unicorn.y = SIZE - 1; 
+        unicorn.dir = 2; // (6,6) 向上撞 -> 拐到 (5,6) 并向下
+        return; 
+      }
       unicorn.y = SIZE - 1;
-      unicorn.dir = 2;
+      unicorn.dir = 2; // 顶部其他列向上撞 -> 平移并改为向下走
     }
-  } else if (ny < 0) {
-    if (unicorn.x === 6) { unicorn.dir = 3; }
-    else if (unicorn.x === 0) { unicorn.x = 1; unicorn.y = 0; unicorn.dir = 0; }
+  } 
+  // 下边界 (y = 0)
+  else if (ny < 0) {
+    if (unicorn.x === 6) { 
+      unicorn.x = 5; 
+      unicorn.y = 0; 
+      unicorn.dir = 3; // (6,0) 向下撞 -> 拐到 (5,0) 并向左
+    }
+    else if (unicorn.x === 0) { 
+      unicorn.x = 0; 
+      unicorn.y = 1; 
+      unicorn.dir = 0; // (0,0) 向下撞 -> 拐到 (0,1) 并向上
+    }
     else {
       if (unicorn.x === 1) unicorn.x = 0;
       else if (unicorn.x === 2) unicorn.x = 3;
@@ -319,11 +337,21 @@ function moveUnicornStep() {
       else if (unicorn.x === 4) unicorn.x = 5;
       else if (unicorn.x === 5) unicorn.x = 4;
       unicorn.y = 0;
-      unicorn.dir = 0;
+      unicorn.dir = 0; // 底部其他列向下撞 -> 平移并改为向上走
     }
-  } else if (nx < 0) {
-    if (unicorn.y === 0) { unicorn.x = 0; unicorn.y = 1; unicorn.dir = 1; }
-    else if (unicorn.y === SIZE - 1) { unicorn.dir = 2; }
+  } 
+  // 左边界 (x = 0)
+  else if (nx < 0) {
+    if (unicorn.y === 0) { 
+      unicorn.x = 0; 
+      unicorn.y = 1; 
+      unicorn.dir = 1; // (0,0) 向左撞 -> 拐到 (0,1) 并向右
+    }
+    else if (unicorn.y === SIZE - 1) { 
+      unicorn.x = 0; 
+      unicorn.y = SIZE - 2; 
+      unicorn.dir = 2; // (0,6) 向左撞 -> 拐到 (0,5) 并向下
+    }
     else {
       if (unicorn.y === 1) unicorn.y = 0;
       else if (unicorn.y === 2) unicorn.y = 3;
@@ -332,11 +360,21 @@ function moveUnicornStep() {
       else if (unicorn.y === 5) unicorn.y = 4;
       else if (unicorn.y === 6) unicorn.y = 5;
       unicorn.x = 0;
-      unicorn.dir = 1;
+      unicorn.dir = 1; // 左侧其他行向左撞 -> 平移并改为向右走
     }
-  } else if (nx >= SIZE) {
-    if (unicorn.y === SIZE - 1) { unicorn.x = SIZE - 1; unicorn.y = SIZE - 2; unicorn.dir = 3; }
-    else if (unicorn.y === 0) { unicorn.dir = 0; }
+  } 
+  // 右边界 (x = 6)
+  else if (nx >= SIZE) {
+    if (unicorn.y === SIZE - 1) { 
+      unicorn.x = SIZE - 1; 
+      unicorn.y = SIZE - 2; 
+      unicorn.dir = 2; // (6,6) 向右撞 -> 拐到 (6,5) 并向下
+    }
+    else if (unicorn.y === 0) { 
+      unicorn.x = SIZE - 1; 
+      unicorn.y = 1; 
+      unicorn.dir = 0; // (6,0) 向右撞 -> 拐到 (6,1) 并向上
+    }
     else {
       if (unicorn.y === 0) unicorn.y = 6;
       else if (unicorn.y === 1) unicorn.y = 2;
@@ -345,14 +383,15 @@ function moveUnicornStep() {
       else if (unicorn.y === 4) unicorn.y = 3;
       else if (unicorn.y === 5) unicorn.y = 6;
       unicorn.x = SIZE - 1;
-      unicorn.dir = 3;
+      unicorn.dir = 3; // 右侧其他行向右撞 -> 平移并改为向左走
     }
-  } else {
+  } 
+  // 正常内部移动
+  else {
     unicorn.x = nx;
     unicorn.y = ny;
   }
 }
-
 document.getElementById('roll-btn').addEventListener('click', () => {
   if (gameState !== 'MOVE_SELECT' || currentPlayer !== 'p1') return;
   startTurnAction('p1');
@@ -653,7 +692,7 @@ function checkGameOver() {
 
   let sorted = [...playerKeys].sort((a, b) => {
     if (players[b].coins !== players[a].coins) return players[b].coins - players[a].coins;
-    return areas[b] - areas[a];
+    return areas[b] - areas[b];
   });
 
   let winnerKey = sorted[0];
