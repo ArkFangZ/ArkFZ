@@ -44,7 +44,7 @@
         transition: background-color 0.3s ease, color 0.3s ease;
     }
     
-    /* 核心适配：电脑端格子写死固定像素（大小绝对不变），手机端自适应正方形 */
+    /* 电脑端固定大小，手机端自适应正方形 */
     .cell {
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
@@ -123,9 +123,9 @@
 <!-- Main Game Layout -->
 <div class="w-full max-w-4xl flex flex-col md:flex-row gap-6 items-center md:items-start justify-center my-auto">
   
-  <!-- 棋盘外框：电脑端固定不随窗口缩放乱变，手机端自适应正方形 -->
-  <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl transition-colors w-full max-w-[360px] md:max-w-none md:w-auto">
-      <div class="board-outer grid grid-cols-7 gap-2 w-full" id="board"></div>
+  <!-- 棋盘外框：手机端适当加宽（max-w-[340px]），并将网格间距缩小（gap-1 md:gap-2） -->
+  <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 md:p-4 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl transition-colors w-full max-w-[340px] md:max-w-none md:w-auto">
+      <div class="board-outer grid grid-cols-7 gap-1 md:gap-2 w-full" id="board"></div>
   </div>
 
   <div class="controls bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl flex flex-col gap-4 w-full md:w-80 transition-colors">
@@ -281,10 +281,11 @@ function render() {
     }
 
     if (x === unicorn.x && y === unicorn.y) {
+      // 关键：在手机上用 text-base / text-[10px]，在电脑上用 md:text-2xl / md:text-xs，让独角兽大小完美适配格子
       el.innerHTML = `
-        <div class="unicorn-container flex items-center justify-center gap-1 text-2xl animate-float">
+        <div class="unicorn-container flex items-center justify-center gap-0.5 md:gap-1 text-base md:text-2xl animate-float">
           <span>🦄</span>
-          <span class="dir-indicator text-xs font-black text-rose-500">${DIR_SYMBOLS[unicorn.dir]}</span>
+          <span class="dir-indicator text-[10px] md:text-xs font-black text-rose-500">${DIR_SYMBOLS[unicorn.dir]}</span>
         </div>
       `;
     }
