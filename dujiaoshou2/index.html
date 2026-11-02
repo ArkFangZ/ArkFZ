@@ -29,22 +29,15 @@
     }
 </script>
 <style>
-    body { font-family: 'Plus Jakarta Sans', sans-serif; user-select: none; -webkit-user-select: none; transition: background-color 0.3s, color 0.3s; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; user-select: none; transition: background-color 0.3s, color 0.3s; }
     
-    /* 电脑端固定大小，手机端自适应正方形 */
-    .cell {
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    }
+    /* 核心适配：电脑端格子写死固定像素大小，手机端自适应正方形 */
+    .cell { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
     @media (min-width: 768px) {
-        .cell {
-            width: 56px;
-            height: 56px;
-        }
+        .cell { width: 56px; height: 56px; }
     }
     @media (max-width: 767px) {
-        .cell {
-            aspect-ratio: 1 / 1;
-        }
+        .cell { aspect-ratio: 1 / 1; }
     }
 
     .cell[data-owner="p1"] { background-color: #ffb7b2 !important; }
@@ -55,10 +48,10 @@
     .cell.selected { box-shadow: inset 0 0 0 4px #06d6a0, 0 0 12px rgba(6, 214, 160, 0.5); transform: scale(0.93); }
 </style>
 </head>
-<body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 sm:p-6">
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-between p-3 sm:p-6 md:p-8">
 
 <!-- 顶部标题栏 -->
-<header class="w-full max-w-3xl flex items-center justify-between mb-4 sm:mb-6">
+<header class="w-full max-w-3xl flex items-center justify-between mb-3 sm:mb-6">
     <div class="flex items-center gap-3">
         <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-pink-500/80 to-rose-400/80 flex items-center justify-center shadow-md text-white text-xl">🦄</div>
         <div>
@@ -155,7 +148,7 @@
 
 <!-- ================= 游戏对局界面 ================= -->
 <div id="view-game" class="w-full max-w-4xl flex flex-col items-center justify-center hidden my-auto">
-    <div class="w-full max-w-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-lg flex gap-3 justify-around mb-4 sm:mb-6 transition-colors">
+    <div class="w-full max-w-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-lg flex gap-3 justify-around mb-4">
         <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p1-card">
             <div id="p1-name" class="font-bold text-rose-500 dark:text-rose-400 text-xs">玩家 1</div>
             <div class="text-[11px] text-slate-500 mt-0.5">金币: <span id="p1-coins" class="font-extrabold">30</span></div>
@@ -173,13 +166,13 @@
         </div>
     </div>
 
-    <div class="w-full max-w-4xl flex flex-col md:flex-row gap-6 items-center md:items-start justify-center my-auto">
-      <!-- 棋盘外框：手机端限制 max-w-[340px] 防止溢出，网格间距自适应 gap-1 md:gap-2 -->
-      <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 md:p-4 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl transition-colors w-full max-w-[340px] md:max-w-none md:w-auto">
+    <div class="w-full flex flex-col md:flex-row gap-4 sm:gap-6 items-center md:items-start justify-center">
+      <!-- 棋盘外框：手机端自适应最大宽度，网格间距调为 gap-1 保持紧凑 -->
+      <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 md:p-4 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl w-full max-w-[340px] md:max-w-none md:w-auto">
           <div class="board-outer grid grid-cols-7 gap-1 md:gap-2 w-full" id="board"></div>
       </div>
 
-      <div class="controls bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl flex flex-col gap-4 w-full md:w-80 transition-colors">
+      <div class="controls bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl flex flex-col gap-3 sm:gap-4 w-full md:w-80">
         <div id="turn-indicator" class="text-center font-bold text-slate-700 dark:text-slate-200 text-base">轮到：玩家 1</div>
         
         <div id="dir-select" class="flex flex-col gap-1.5">
@@ -197,7 +190,7 @@
         
         <div class="text-xs text-slate-500 dark:text-slate-400 text-center bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200/50 dark:border-slate-700/50" id="action-hint">步骤：请选择策略并掷骰子</div>
         
-        <div class="log-box bg-slate-50 dark:bg-slate-900/80 rounded-xl p-3 h-36 overflow-y-auto text-xs font-mono text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/50 space-y-1" id="log"></div>
+        <div class="log-box bg-slate-50 dark:bg-slate-900/80 rounded-xl p-3 h-28 sm:h-36 overflow-y-auto text-xs font-mono text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/50 space-y-1" id="log"></div>
       </div>
     </div>
 </div>
@@ -250,7 +243,6 @@ function initTheme() {
         icon.className = isDark ? 'fa-solid fa-sun text-lg text-amber-400' : 'fa-solid fa-moon text-lg text-slate-500';
     });
 }
-window.onload = () => { initTheme(); };
 
 // --- 游戏核心变量 ---
 const SIZE = 7;
@@ -296,6 +288,7 @@ function switchView(viewId) {
     document.getElementById(viewId).classList.remove('hidden');
 }
 
+// 完全清理并返回主菜单
 function returnToMainMenu() {
     closeMQTT();
     document.getElementById('victoryModal').classList.add('hidden');
@@ -327,6 +320,7 @@ function closeMQTT() {
     }
 }
 
+// === 单人 PVC 模式 ===
 function startPVCGame() {
     returnToMainMenu();
     const nickname = document.getElementById('player-nickname').value.trim() || '冒险者';
@@ -347,6 +341,7 @@ function startPVCGame() {
     setupGameUI();
 }
 
+// === 多人 PVP 模式 ===
 function showCreateRoomView() {
     returnToMainMenu();
     const nickname = document.getElementById('player-nickname').value.trim() || '房主';
@@ -542,6 +537,7 @@ function leaveRoom() {
     returnToMainMenu();
 }
 
+// === 游戏逻辑 ===
 function setupGameUI() {
     switchView('view-game');
     document.getElementById('p1-name').innerText = players.p1.name;
@@ -560,7 +556,8 @@ function createBoardDOM() {
   for (let r = SIZE - 1; r >= 0; r--) {
     for (let c = 0; c < SIZE; c++) {
       const cell = document.createElement('div');
-      cell.className = 'cell bg-slate-100 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700/50 flex flex-col items-center justify-center relative cursor-default shadow-sm';
+      // 移除写死大小，交由统一的 .cell 样式控制
+      cell.className = 'cell bg-slate-100 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700/50 flex items-center justify-center relative cursor-default shadow-sm';
       cell.dataset.x = c; cell.dataset.y = r;
       cell.addEventListener('click', () => handleCellClick(c, r));
       boardEl.appendChild(cell);
@@ -584,6 +581,7 @@ function render() {
     if (stack.length > 0) el.setAttribute('data-owner', stack[stack.length - 1].owner);
 
     if (x === unicorn.x && y === unicorn.y) {
+      // 手机端自适应缩小独角兽与方向图标大小，防止溢出
       el.innerHTML = `
         <div class="unicorn-container flex items-center justify-center gap-0.5 md:gap-1 text-base md:text-2xl animate-float">
           <span>🦄</span>
@@ -597,11 +595,8 @@ function render() {
     document.getElementById(`${k}-coins`).innerText = players[k].coins;
     document.getElementById(`${k}-carpets`).innerText = players[k].carpets;
     const card = document.getElementById(`${k}-card`);
-    if (currentPlayer === k) {
-        card.className = `player-info flex-1 text-center p-2 rounded-xl transition-all bg-white dark:bg-slate-900 shadow-sm ring-2 ring-pink-400 opacity-100`;
-    } else {
-        card.className = `player-info flex-1 text-center p-2 rounded-xl transition-all opacity-70`;
-    }
+    if (currentPlayer === k) card.className = `player-info flex-1 text-center p-2 rounded-xl transition-all bg-white dark:bg-slate-900 ring-2 ring-pink-400`;
+    else card.className = `player-info flex-1 text-center p-2 rounded-xl opacity-70`;
   });
 
   document.getElementById('turn-indicator').innerText = `轮到：${players[currentPlayer].name}`;
@@ -614,34 +609,59 @@ function moveUnicornStep() {
 
   if (ny >= SIZE) {
     if (unicorn.x === 0) { 
-      if (unicorn.dir !==1){ unicorn.dir = 1; return; }
-    } else {
+      if (unicorn.dir !==1){
+        unicorn.dir = 1;
+        return; 
+      }
+    } 
+    else {
       unicorn.x = (unicorn.x % 2 === 0) ? unicorn.x - 1 : unicorn.x + 1;
-      unicorn.y = SIZE - 1; unicorn.dir = 2; 
+      unicorn.y = SIZE - 1; 
+      unicorn.dir = 2; 
     }
-  } else if (ny < 0) {
+  } 
+  else if (ny < 0) {
     if (unicorn.x === 6) { 
-      if (unicorn.dir !==3){ unicorn.dir = 3; return; }
-    } else {
+      if (unicorn.dir !==3){
+        unicorn.dir = 3;
+        return; 
+      }
+    }
+    else {
       unicorn.x = (unicorn.x % 2 === 0) ? unicorn.x + 1 : unicorn.x - 1;
-      unicorn.y = 0; unicorn.dir = 0; 
+      unicorn.y = 0;
+      unicorn.dir = 0; 
     }
-  } else if (nx < 0) {
+  } 
+  else if (nx < 0) {
     if (unicorn.y === SIZE - 1) {
-      if (unicorn.dir !==2){ unicorn.dir = 2; return; } 
-    } else {
+      if (unicorn.dir !==2){
+        unicorn.dir = 2;
+        return; 
+      } 
+    }
+    else {
       unicorn.y = (unicorn.y % 2 === 0) ? unicorn.y + 1 : unicorn.y - 1;
-      unicorn.x = 0; unicorn.dir = 1; 
+      unicorn.x = 0;
+      unicorn.dir = 1; 
     }
-  } else if (nx >= SIZE) {
+  } 
+  else if (nx >= SIZE) {
     if (unicorn.y === 0) { 
-      if (unicorn.dir !==0){ unicorn.dir = 0; return; }
-    } else {
+      if (unicorn.dir !==0){
+        unicorn.dir = 0;
+        return; 
+      }
+  }
+    else {
       unicorn.y = (unicorn.y % 2 === 0) ? unicorn.y - 1 : unicorn.y + 1;
-      unicorn.x = SIZE - 1; unicorn.dir = 3; 
+      unicorn.x = SIZE - 1;
+      unicorn.dir = 3; 
     }
-  } else {
-    unicorn.x = nx; unicorn.y = ny;
+  } 
+  else {
+    unicorn.x = nx;
+    unicorn.y = ny;
   }
 }
 
@@ -741,16 +761,15 @@ function checkCarpetValidity(pos1, pos2) {
   const s2 = boardData[pos2.y][pos2.x];
   let top1 = s1.length > 0 ? s1[s1.length - 1].owner : null;
   let top2 = s2.length > 0 ? s2[s2.length - 1].owner : null;
-
-  if (top1 !== null && top2 !== null && top1 === top2) return false;
-  return true;
+  return !(top1 !== null && top2 !== null && top1 === top2);
 }
 
 function hasValidPairsInBox(range) {
   let neighbors = [];
   for (let dx = -range; dx <= range; dx++) {
     for (let dy = -range; dy <= range; dy++) {
-      let nx = unicorn.x + dx; let ny = unicorn.y + dy;
+      let nx = unicorn.x + dx;
+      let ny = unicorn.y + dy;
       if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && !(nx === unicorn.x && ny === unicorn.y)) {
         neighbors.push({x: nx, y: ny});
       }
@@ -759,7 +778,7 @@ function hasValidPairsInBox(range) {
 
   for (let i = 0; i < neighbors.length; i++) {
     for (let j = i + 1; j < neighbors.length; j++) {
-      let p1 = neighbors[i]; let p2 = neighbors[j];
+      let p1 = neighbors[i], p2 = neighbors[j];
       if (Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) === 1) {
         if (range === 2) {
           const p1In3 = Math.abs(p1.x - unicorn.x) <= 1 && Math.abs(p1.y - unicorn.y) <= 1;
@@ -776,7 +795,8 @@ function hasValidPairsInBox(range) {
 function highlightValidCarpetOptions() {
   selectedCells = [];
   document.querySelectorAll('.cell').forEach(el => {
-    const x = parseInt(el.dataset.x); const y = parseInt(el.dataset.y);
+    const x = parseInt(el.dataset.x);
+    const y = parseInt(el.dataset.y);
     if (Math.abs(x - unicorn.x) <= allowedRange && Math.abs(y - unicorn.y) <= allowedRange && !(x === unicorn.x && y === unicorn.y)) {
       el.classList.add('highlight');
     }
@@ -795,13 +815,13 @@ function handleCellClick(x, y) {
     const first = selectedCells[0];
     const firstIn3 = Math.abs(first.x - unicorn.x) <= 1 && Math.abs(first.y - unicorn.y) <= 1;
     const secondIn3 = Math.abs(x - unicorn.x) <= 1 && Math.abs(y - unicorn.y) <= 1;
-
     let validRangeRule = (allowedRange === 1) ? (firstIn3 && secondIn3) : (firstIn3 || secondIn3);
 
     if (Math.abs(first.x - x) + Math.abs(first.y - y) === 1 && validRangeRule) {
-      if (validateAndPlaceCarpet(selectedCells[0], {x, y}, myRole)) {
+      const pos1 = selectedCells[0], pos2 = {x, y};
+      if (validateAndPlaceCarpet(pos1, pos2, myRole)) {
         if (isPVP) {
-            sendNetworkMsg('ACTION_CARPET', { pos1: selectedCells[0], pos2: {x, y} });
+            sendNetworkMsg('ACTION_CARPET', { pos1, pos2 });
         }
         endTurn();
       } else {
@@ -846,7 +866,8 @@ function aiExecuteCarpet(aiKey) {
   let neighbors = [];
   for (let dx = -rangeToUse; dx <= rangeToUse; dx++) {
     for (let dy = -rangeToUse; dy <= rangeToUse; dy++) {
-      let nx = unicorn.x + dx; let ny = unicorn.y + dy;
+      let nx = unicorn.x + dx;
+      let ny = unicorn.y + dy;
       if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && !(nx === unicorn.x && ny === unicorn.y)) {
         neighbors.push({x: nx, y: ny});
       }
@@ -856,14 +877,17 @@ function aiExecuteCarpet(aiKey) {
   let validPairs = [];
   for (let i = 0; i < neighbors.length; i++) {
     for (let j = i + 1; j < neighbors.length; j++) {
-      let p1 = neighbors[i]; let p2 = neighbors[j];
+      let p1 = neighbors[i];
+      let p2 = neighbors[j];
       if (Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) === 1) {
         if (rangeToUse === 2) {
           const p1In3 = Math.abs(p1.x - unicorn.x) <= 1 && Math.abs(p1.y - unicorn.y) <= 1;
           const p2In3 = Math.abs(p2.x - unicorn.x) <= 1 && Math.abs(p2.y - unicorn.y) <= 1;
           if (!p1In3 && !p2In3) continue;
         }
-        if (checkCarpetValidity(p1, p2)) validPairs.push([p1, p2]);
+        if (checkCarpetValidity(p1, p2)) {
+          validPairs.push([p1, p2]);
+        }
       }
     }
   }
@@ -930,6 +954,8 @@ function endTurn() {
   currentPlayerIndex = (currentPlayerIndex + 1) % playerKeys.length;
   currentPlayer = playerKeys[currentPlayerIndex];
 
+  render();
+
   gameState = 'MOVE_SELECT';
   checkTurnStart();
 }
@@ -939,66 +965,20 @@ function checkTurnStart() {
   const slotType = roomSlots[currentPlayer].type;
   const isSlotAI = (slotType === 'ai');
 
-  render();
-
   document.getElementById('roll-btn').disabled = (!isMyTurn || isSlotAI);
   document.getElementById('action-hint').innerText = isSlotAI ? `🤖 ${players[currentPlayer].name} 思考中...` : (isMyTurn ? "步骤：请选择策略并掷骰子" : `等待 ${players[currentPlayer].name} 操作...`);
 
   if (isSlotAI && (isHost || !isPVP)) {
-      setTimeout(() => {
-          if (currentPlayer === playerKeys[currentPlayerIndex] && roomSlots[currentPlayer].type === 'ai') {
-              const playerKey = currentPlayer;
-              // 💡 战术移动寻路系统
-              const options = ['forward', 'left', 'right'];
-              let bestChoice = 'forward';
-              let maxScore = -999;
-
-              options.forEach(opt => {
-                let tempDir = unicorn.dir;
-                if (opt === 'left') tempDir = (unicorn.dir + 3) % 4;
-                if (opt === 'right') tempDir = (unicorn.dir + 1) % 4;
-                
-                let vec = DIR_VECTORS[tempDir];
-                let testX = unicorn.x + vec.x;
-                let testY = unicorn.y + vec.y;
-                
-                let score = 0;
-                if (testX >= 0 && testX < SIZE && testY >= 0 && testY < SIZE) {
-                  score += 10;
-                  const stack = boardData[testY][testX];
-                  
-                  if (stack.length === 0) {
-                    score += 15;
-                  } else {
-                    let topOwner = stack[stack.length - 1].owner;
-                    if (topOwner === playerKey) {
-                      score += 5;
-                    } else {
-                      score += 25;
-                    }
-                  }
-                } else {
-                  score -= 50;
-                }
-                
-                if (score > maxScore) {
-                  maxScore = score;
-                  bestChoice = opt;
-                }
-              });
-
-              let actionChoice = bestChoice;
-              if (Math.random() < 0.10) {
-                actionChoice = options[Math.floor(Math.random() * options.length)];
-              }
-
-              const steps = Math.floor(Math.random() * 4) + 1;
-              if (isPVP) {
-                  sendNetworkMsg('ACTION_ROLL', { actionChoice, steps });
-              }
-              executeTurnWithSteps(actionChoice, steps);
-          }
-      }, 1000);
+    setTimeout(() => {
+      const choices = ['forward', 'left', 'right'];
+      const actionChoice = choices[Math.floor(Math.random() * choices.length)];
+      document.getElementById('dir-input').value = actionChoice;
+      const steps = Math.floor(Math.random() * 4) + 1;
+      if (isPVP) {
+          sendNetworkMsg('ACTION_ROLL', { actionChoice, steps });
+      }
+      executeTurnWithSteps(actionChoice, steps);
+    }, 1000);
   }
 }
 
@@ -1014,8 +994,7 @@ function checkGameOver() {
     for (let c = 0; c < SIZE; c++) {
       const stack = boardData[r][c];
       if (stack.length > 0) {
-        const topOwner = stack[stack.length - 1].owner;
-        if (areas[topOwner] !== undefined) areas[topOwner]++;
+        areas[stack[stack.length - 1].owner]++;
       }
     }
   }
@@ -1029,7 +1008,7 @@ function checkGameOver() {
   let resultHTML = "";
   sorted.forEach((k, index) => {
     let rankText = `第 ${index + 1} 名`;
-    resultHTML += `<div class="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-700/50 last:border-0"><span class="font-semibold text-slate-500">${rankText} <b>${players[k].name}</b></span>: <span class="text-pink-500 font-bold">${players[k].coins} 金币</span> (可见: ${areas[k]})</div>`;
+    resultHTML += `<div class="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-700/50 last:border-0"><span class="font-semibold text-slate-500">${rankText} <b>${players[k].name}</b></span>: <span class="text-pink-500 font-bold">${players[k].coins} 金币</span></div>`;
   });
   
   document.getElementById('modal-result-text').innerHTML = `
@@ -1038,6 +1017,10 @@ function checkGameOver() {
   `;
   document.getElementById('victoryModal').classList.remove('hidden');
 }
+
+window.onload = () => {
+    initTheme();
+};
 </script>
 </body>
 </html>
