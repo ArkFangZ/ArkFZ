@@ -155,7 +155,7 @@
 
 <!-- ================= 游戏对局界面 ================= -->
 <div id="view-game" class="w-full max-w-4xl flex flex-col items-center justify-center hidden my-auto">
-    <div class="w-full max-w-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-lg flex gap-3 justify-around mb-6 transition-colors">
+    <div class="w-full max-w-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-lg flex gap-3 justify-around mb-4 sm:mb-6 transition-colors">
         <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p1-card">
             <div id="p1-name" class="font-bold text-rose-500 dark:text-rose-400 text-xs">玩家 1</div>
             <div class="text-[11px] text-slate-500 mt-0.5">金币: <span id="p1-coins" class="font-extrabold">30</span></div>
@@ -598,7 +598,7 @@ function render() {
     document.getElementById(`${k}-carpets`).innerText = players[k].carpets;
     const card = document.getElementById(`${k}-card`);
     if (currentPlayer === k) {
-        card.className = `player-info flex-1 text-center p-2 rounded-xl transition-all bg-white dark:bg-slate-900 shadow-sm ring-2 ring-pink-400`;
+        card.className = `player-info flex-1 text-center p-2 rounded-xl transition-all bg-white dark:bg-slate-900 shadow-sm ring-2 ring-pink-400 opacity-100`;
     } else {
         card.className = `player-info flex-1 text-center p-2 rounded-xl transition-all opacity-70`;
     }
@@ -869,7 +869,6 @@ function aiExecuteCarpet(aiKey) {
   }
 
   if (validPairs.length > 0) {
-    // 💡 机器人差异化人格与对抗逻辑
     let isAggressive = (aiKey === 'p3'); 
 
     let scoredPairs = validPairs.map(pair => {
@@ -931,8 +930,6 @@ function endTurn() {
   currentPlayerIndex = (currentPlayerIndex + 1) % playerKeys.length;
   currentPlayer = playerKeys[currentPlayerIndex];
 
-  render();
-
   gameState = 'MOVE_SELECT';
   checkTurnStart();
 }
@@ -942,14 +939,16 @@ function checkTurnStart() {
   const slotType = roomSlots[currentPlayer].type;
   const isSlotAI = (slotType === 'ai');
 
+  render();
+
   document.getElementById('roll-btn').disabled = (!isMyTurn || isSlotAI);
   document.getElementById('action-hint').innerText = isSlotAI ? `🤖 ${players[currentPlayer].name} 思考中...` : (isMyTurn ? "步骤：请选择策略并掷骰子" : `等待 ${players[currentPlayer].name} 操作...`);
 
   if (isSlotAI && (isHost || !isPVP)) {
       setTimeout(() => {
-          if (currentPlayer === currentPlayer && roomSlots[currentPlayer].type === 'ai') {
+          if (currentPlayer === playerKeys[currentPlayerIndex] && roomSlots[currentPlayer].type === 'ai') {
               const playerKey = currentPlayer;
-              // 💡 战术寻路：智能评估直行、左转、右转的前方收益
+              // 💡 战术移动寻路系统
               const options = ['forward', 'left', 'right'];
               let bestChoice = 'forward';
               let maxScore = -999;
