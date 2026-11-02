@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="zh-CN" class="dark">
-<head>  
+<head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 确保 viewport 设置正确 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>商业独角兽</title>
 <!-- 引入 Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
@@ -42,7 +43,23 @@
         user-select: none;
         -webkit-user-select: none;
         transition: background-color 0.3s ease, color 0.3s ease;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
     }
+    
+    /* 核心适配容器：保证电脑端和手机端布局逻辑完全一致 */
+    #app-container {
+        width: 820px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+        box-sizing: border-box;
+        transform-origin: top center; /* 缩放基准点设为顶部居中 */
+    }
+
     .cell {
         aspect-ratio: 1 / 1;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -67,73 +84,82 @@
     }
 </style>
 </head>
-<body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 sm:p-6 md:p-8">
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen">
 
-<!-- Header 顶部标题栏与主题切换 -->
-<header class="w-full max-w-3xl flex items-center justify-between mb-4 sm:mb-6">
-    <div class="flex items-center gap-3">
-        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-pink-500/80 to-rose-400/80 flex items-center justify-center shadow-md text-white text-xl">
-            🦄
+<!-- 整体包裹容器 -->
+<div id="app-container">
+
+    <!-- Header 顶部标题栏与主题切换 -->
+    <header class="w-full flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500/80 to-rose-400/80 flex items-center justify-center shadow-md text-white text-xl">
+                🦄
+            </div>
+            <div>
+                <h1 class="text-2xl font-extrabold tracking-tight text-slate-700 dark:text-slate-200">
+                    商业独角兽
+                </h1>
+                <p class="text-sm text-slate-400 dark:text-slate-400 font-medium">策略铺地毯大作战</p>
+            </div>
         </div>
-        <div>
-            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-700 dark:text-slate-200">
-                商业独角兽
-            </h1>
-            <p class="text-xs sm:text-sm text-slate-400 dark:text-slate-400 font-medium">策略铺地毯大作战</p>
+        
+        <button id="themeToggleBtn" title="切换深色/浅色模式" class="flex items-center justify-center w-10 h-10 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-amber-400 rounded-xl transition shadow-sm border border-slate-200 dark:border-slate-700">
+            <i id="themeIcon" class="fa-solid fa-moon text-lg"></i>
+        </button>
+    </header>
+
+    <!-- Status Card 玩家状态栏 -->
+    <div class="w-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-lg flex gap-3 justify-around mb-6 transition-colors">
+        <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p1-card">
+            <div class="p1-text font-bold text-rose-500 dark:text-rose-400 text-xs">玩家</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">金币: <span id="p1-coins" class="font-extrabold">30</span></div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">地毯: <span id="p1-carpets" class="font-extrabold">15</span></div>
+        </div>
+        <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p2-card">
+            <div class="p2-text font-bold text-blue-500 dark:text-blue-400 text-xs">机器人1</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">金币: <span id="p2-coins" class="font-extrabold">30</span></div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">地毯: <span id="p2-carpets" class="font-extrabold">15</span></div>
+        </div>
+        <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p3-card">
+            <div class="p3-text font-bold text-emerald-500 dark:text-emerald-400 text-xs">机器人2</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">金币: <span id="p3-coins" class="font-extrabold">30</span></div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">地毯: <span id="p3-carpets" class="font-extrabold">15</span></div>
         </div>
     </div>
-    
-    <button id="themeToggleBtn" title="切换深色/浅色模式" class="flex items-center justify-center w-10 h-10 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-amber-400 rounded-xl transition shadow-sm border border-slate-200 dark:border-slate-700">
-        <i id="themeIcon" class="fa-solid fa-moon text-lg"></i>
-    </button>
-</header>
 
-<!-- Status Card 玩家状态栏 -->
-<div class="w-full max-w-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-lg flex gap-3 justify-around mb-6 transition-colors">
-    <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p1-card">
-        <div class="p1-text font-bold text-rose-500 dark:text-rose-400 text-xs">玩家</div>
-        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">金币: <span id="p1-coins" class="font-extrabold">30</span></div>
-        <div class="text-[11px] text-slate-500 dark:text-slate-400">地毯: <span id="p1-carpets" class="font-extrabold">15</span></div>
-    </div>
-    <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p2-card">
-        <div class="p2-text font-bold text-blue-500 dark:text-blue-400 text-xs">机器人1</div>
-        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">金币: <span id="p2-coins" class="font-extrabold">30</span></div>
-        <div class="text-[11px] text-slate-500 dark:text-slate-400">地毯: <span id="p2-carpets" class="font-extrabold">15</span></div>
-    </div>
-    <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p3-card">
-        <div class="p3-text font-bold text-emerald-500 dark:text-emerald-400 text-xs">机器人2</div>
-        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">金币: <span id="p3-coins" class="font-extrabold">30</span></div>
-        <div class="text-[11px] text-slate-500 dark:text-slate-400">地毯: <span id="p3-carpets" class="font-extrabold">15</span></div>
-    </div>
-</div>
+    <!-- Main Game Layout -->
+    <div class="w-full flex flex-row gap-6 items-start justify-center">
+      
+      <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl transition-colors">
+          <div class="board-outer grid grid-cols-7 gap-2" id="board"></div>
+      </div>
 
-<!-- Main Game Layout -->
-<div class="w-full max-w-4xl flex flex-col md:flex-row gap-6 items-center md:items-start justify-center my-auto">
-  
-  <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl transition-colors">
-      <div class="board-outer grid grid-cols-7 gap-2" id="board"></div>
-  </div>
+      <div class="controls bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl flex flex-col gap-4 w-80 transition-colors">
+        <div id="turn-indicator" class="text-center font-bold text-slate-700 dark:text-slate-200 text-base">轮到：玩家</div>
+        
+        <div id="dir-select" class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-400 dark:text-slate-400">移动策略选择：</label>
+          <select id="dir-input" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400">
+            <option value="forward">直行</option>
+            <option value="left">左转</option>
+            <option value="right">右转</option>
+          </select>
+        </div>
 
-  <div class="controls bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl flex flex-col gap-4 w-full md:w-80 transition-colors">
-    <div id="turn-indicator" class="text-center font-bold text-slate-700 dark:text-slate-200 text-base">轮到：玩家</div>
-    
-    <div id="dir-select" class="flex flex-col gap-1.5">
-      <label class="text-xs font-semibold text-slate-400 dark:text-slate-400">移动策略选择：</label>
-      <select id="dir-input" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400">
-        <option value="forward">直行</option>
-        <option value="left">左转</option>
-        <option value="right">右转</option>
-      </select>
+        <button id="roll-btn" class="w-full py-3 px-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white font-bold rounded-xl shadow-lg shadow-pink-500/25 transition duration-200 active:scale-95 text-sm flex items-center justify-center gap-2">
+            <i class="fa-solid fa-dice"></i> 掷骰子
+        </button>
+        
+        <div class="text-xs text-slate-500 dark:text-slate-400 text-center bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200/50 dark:border-slate-700/50" id="action-hint">步骤：请选择策略并掷骰子</div>
+        
+        <div class="log-box bg-slate-50 dark:bg-slate-900/80 rounded-xl p-3 h-36 overflow-y-auto text-xs font-mono text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/50 space-y-1" id="log"></div>
+      </div>
     </div>
 
-    <button id="roll-btn" class="w-full py-3 px-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white font-bold rounded-xl shadow-lg shadow-pink-500/25 transition duration-200 active:scale-95 text-sm flex items-center justify-center gap-2">
-        <i class="fa-solid fa-dice"></i> 掷骰子
-    </button>
-    
-    <div class="text-xs text-slate-500 dark:text-slate-400 text-center bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200/50 dark:border-slate-700/50" id="action-hint">步骤：请选择策略并掷骰子</div>
-    
-    <div class="log-box bg-slate-50 dark:bg-slate-900/80 rounded-xl p-3 h-36 overflow-y-auto text-xs font-mono text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/50 space-y-1" id="log"></div>
-  </div>
+    <footer class="w-full text-center text-xs text-slate-400 dark:text-slate-500 mt-6">
+        商业独角兽 • 策略铺地毯
+    </footer>
+
 </div>
 
 <!-- 游戏结束弹窗 -->
@@ -153,11 +179,25 @@
     </div>
 </div>
 
-<footer class="w-full max-w-4xl text-center text-xs text-slate-400 dark:text-slate-500 mt-6">
-    商业独角兽 • 策略铺地毯
-</footer>
-
 <script>
+// --- 自动缩放适配逻辑（保持电脑布局在手机上等比缩小） ---
+function autoResize() {
+    const container = document.getElementById('app-container');
+    const designWidth = 820; // 设计稿宽度
+    const windowWidth = window.innerWidth;
+    
+    if (windowWidth < designWidth) {
+        const scale = windowWidth / designWidth;
+        container.style.transform = `scale(${scale})`;
+        // 动态修正缩放带来的高度塌陷空白
+        container.style.marginBottom = `-${container.offsetHeight * (1 - scale)}px`;
+    } else {
+        container.style.transform = 'scale(1)';
+        container.style.marginBottom = '0px';
+    }
+}
+window.addEventListener('resize', autoResize);
+
 // --- 音效系统 (Web Audio API 合成) ---
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx;
@@ -236,6 +276,7 @@ function createBoardDOM() {
   for (let r = SIZE - 1; r >= 0; r--) {
     for (let c = 0; c < SIZE; c++) {
       const cell = document.createElement('div');
+      // 给每个格子固定宽高（比如 14 * 4 = 56px），在手机上会整体等比缩放
       cell.className = 'cell w-14 h-14 bg-slate-100 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700/50 flex flex-col items-center justify-center relative cursor-default shadow-sm';
       cell.dataset.x = c;
       cell.dataset.y = r;
@@ -290,74 +331,69 @@ function render() {
   document.getElementById('turn-indicator').innerText = `轮到：${players[currentPlayer].name}`;
 }
 
-// --- 完美修正后的蛇形移动与撞墙跨步逻辑 (左下0,0 右上6,6笛卡尔坐标系) ---
 function moveUnicornStep() {
   let vec = DIR_VECTORS[unicorn.dir];
   let nx = unicorn.x + vec.x;
   let ny = unicorn.y + vec.y;
 
-  // 上边界 (y = 6)
   if (ny >= SIZE) {
     if (unicorn.x === 0) { 
       if (unicorn.dir !==1){
         unicorn.dir = 1;
-        return; // (0,6) 向上撞 -> 拐到 (1,6) 并向右
+        return; 
       }
     } 
     else {
       unicorn.x = (unicorn.x % 2 === 0) ? unicorn.x - 1 : unicorn.x + 1;
       unicorn.y = SIZE - 1; 
-      unicorn.dir = 2; // 顶部其他列向上撞 -> 平移并改为向下走
+      unicorn.dir = 2; 
     }
   } 
-  // 下边界 (y = 0)
   else if (ny < 0) {
     if (unicorn.x === 6) { 
       if (unicorn.dir !==3){
         unicorn.dir = 3;
-        return; // (6,0) 向下撞 -> 拐到 (5,0) 并向左
+        return; 
       }
     }
     else {
       unicorn.x = (unicorn.x % 2 === 0) ? unicorn.x + 1 : unicorn.x - 1;
       unicorn.y = 0;
-      unicorn.dir = 0; // 底部其他列向下撞 -> 平移并改为向上走
+      unicorn.dir = 0; 
     }
   } 
-  // 左边界 (x = 0)
   else if (nx < 0) {
     if (unicorn.y === SIZE - 1) {
       if (unicorn.dir !==2){
         unicorn.dir = 2;
-        return; // (0,6) 向左撞 -> 拐到 (0,5) 并向下
+        return; 
       } 
     }
     else {
       unicorn.y = (unicorn.y % 2 === 0) ? unicorn.y + 1 : unicorn.y - 1;
       unicorn.x = 0;
-      unicorn.dir = 1; // 左侧其他行向左撞 -> 平移并改为向右走
+      unicorn.dir = 1; 
     }
   } 
-  // 右边界 (x = 6)
   else if (nx >= SIZE) {
     if (unicorn.y === 0) { 
       if (unicorn.dir !==0){
         unicorn.dir = 0;
-        return; // (6,0) 向右撞 -> 拐到 (6,1) 并向上
+        return; 
       }
   }
     else {
       unicorn.y = (unicorn.y % 2 === 0) ? unicorn.y - 1 : unicorn.y + 1;
       unicorn.x = SIZE - 1;
-      unicorn.dir = 3; // 右侧其他行向右撞 -> 平移并改为向左走
+      unicorn.dir = 3; 
     }
   } 
-  // 正常内部移动
   else {
     unicorn.x = nx;
     unicorn.y = ny;
   }
 }
+
 document.getElementById('roll-btn').addEventListener('click', () => {
   if (gameState !== 'MOVE_SELECT' || currentPlayer !== 'p1') return;
   startTurnAction('p1');
@@ -679,6 +715,7 @@ function checkGameOver() {
 window.onload = () => {
     initTheme();
     createBoardDOM();
+    autoResize(); // 初始化时执行一次缩放计算
 };
 </script>
 </body>
