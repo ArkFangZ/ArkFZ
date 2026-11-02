@@ -378,8 +378,52 @@ function startTurnAction(playerKey) {
   let actionChoice = 'forward';
   
   if (isAI) {
-    const choices = ['forward', 'left', 'right'];
-    actionChoice = choices[Math.floor(Math.random() * choices.length)];
+    // 💡 战术移动：评估三种转向后，哪种方向能走向空地、或者更靠近敌方领地收租
+    const options = ['forward', 'left', 'right'];
+    let bestChoice = 'forward';
+    let maxScore = -999;
+
+    options.forEach(opt => {
+      let tempDir = unicorn.dir;
+      if (opt === 'left') tempDir = (unicorn.dir + 3) % 4;
+      if (opt === 'right') tempDir = (unicorn.dir + 1) % 4;
+      
+      let vec = DIR_VECTORS[tempDir];
+      let testX = unicorn.x + vec.x;
+      let testY = unicorn.y + vec.y;
+      
+      let score = 0;
+      if (testX >= 0 && testX < SIZE && testY >= 0 && testY < SIZE) {
+        score += 10;
+        const stack = boardData[testY][testX];
+        
+        if (stack.length === 0) {
+          score += 15; // 极度渴望开拓新领地
+        } else {
+          let topOwner = stack[stack.length - 1].owner;
+          if (topOwner === playerKey) {
+            score += 5; // 回自己家防守/连接
+          } else {
+            score += 25; // 🎯 战术威胁：去踩玩家或另一个机器人的地盘（虽然要交租，但能探路或寻找机会）
+          }
+        }
+      } else {
+        score -= 50; // 避免撞墙死胡同
+      }
+      
+      if (score > maxScore) {
+        maxScore = score;
+        bestChoice = opt;
+      }
+    });
+
+    // 保留 10% 的随机性，避免它像机器人一样全知全能，保留一丝“人类失误”的美感
+    if (Math.random() < 0.10) {
+      actionChoice = options[Math.floor(Math.random() * options.length)];
+    } else {
+      actionChoice = bestChoice;
+    }
+
   } else {
     actionChoice = document.getElementById('dir-input').value;
   }
@@ -614,15 +658,64 @@ function aiExecuteCarpet(aiKey) {
   }
 
   if (validPairs.length > 0) {
-    const choice = validPairs[Math.floor(Math.random() * validPairs.length)];
-    validateAndPlaceCarpet(choice[0], choice[1], aiKey);
+    // 💡 核心机制：给每个 AI 赋予不同的“性格偏好”
+    // 机器人1（p2）：偏爱种田扩张、连片收钱
+    // 机器人2（p3）：偏爱破坏、喜欢去卡断别人（不管是玩家还是机器人1）连成大片的领地
+    let isAggressive = (aiKey === 'p3'); 
+
+    let scoredPairs = validPairs.map(pair => {
+      let score = 0;
+      let [p1, p2] = pair;
+      
+      const s1 = boardData[p1.y][p1.x];
+      const s2 = boardData[p2.y][p2.x];
+      
+      let top1 = s1.length > 0 ? s1[s1.length - 1].owner : null;
+      let top2 = s2.length > 0 ? s2[s2.length - 1].owner : null;
+
+      // 1. 忠于自己的领地扩张
+      if (top1 === aiKey) score += (isAggressive ? 10 : 20);
+      if (top2 === aiKey) score += (isAggressive ? 10 : 20);
+
+      // 2. 动态敌意：不仅防范玩家，也防范另一个对手（无论是谁连成了大片，都要去干扰）
+      const opponents = playerKeys.filter(k => k !== aiKey);
+      opponents.forEach(opp => {
+        if (top1 === opp || top2 === opp) {
+          // 如果对方在这里有地盘，激进型AI（机器人2）会更倾向于去干扰拆台
+          score += isAggressive ? 30 : 15;
+        }
+      });
+
+      // 3. 空白地盘争夺
+      if (!top1) score += 8;
+      if (!top2) score += 8;
+
+      // 4. 随机心眼扰动（让每次选择有差异）
+      score += (Math.random() * 12 - 6);
+
+      return { pair, score };
+    });
+
+    scoredPairs.sort((a, b) => b.score - a.score);
+
+    // 独立且各怀心思的选择策略
+    let chosenPair;
+    let rand = Math.random();
+    if (rand < 0.7 && scoredPairs.length > 0) {
+      // 挑出前两名最优战术解
+      let topCandidates = scoredPairs.slice(0, Math.min(2, scoredPairs.length));
+      chosenPair = topCandidates[Math.floor(Math.random() * topCandidates.length)].pair;
+    } else {
+      chosenPair = validPairs[Math.floor(Math.random() * validPairs.length)];
+    }
+
+    validateAndPlaceCarpet(chosenPair[0], chosenPair[1], aiKey);
   } else {
     log(`${players[aiKey].name} 无合法位置可铺，跳过`);
   }
 
   endTurn();
 }
-
 function endTurn() {
   resetSelection();
   render();
