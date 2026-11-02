@@ -43,10 +43,23 @@
         -webkit-user-select: none;
         transition: background-color 0.3s ease, color 0.3s ease;
     }
+    
+    /* 核心适配：电脑端格子写死固定像素（大小绝对不变），手机端自适应正方形 */
     .cell {
-        aspect-ratio: 1 / 1; /* 强制所有格子保持完美正方形 */
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
+    @media (min-width: 768px) {
+        .cell {
+            width: 56px;
+            height: 56px;
+        }
+    }
+    @media (max-width: 767px) {
+        .cell {
+            aspect-ratio: 1 / 1;
+        }
+    }
+
     .cell[data-owner="p1"] { background-color: #ffb7b2 !important; }
     .cell[data-owner="p2"] { background-color: #a0c4ff !important; }
     .cell[data-owner="p3"] { background-color: #caffbf !important; }
@@ -67,10 +80,10 @@
     }
 </style>
 </head>
-<body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-between p-3 sm:p-6 md:p-8">
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 sm:p-6 md:p-8">
 
 <!-- Header 顶部标题栏与主题切换 -->
-<header class="w-full max-w-3xl flex items-center justify-between mb-3 sm:mb-6">
+<header class="w-full max-w-3xl flex items-center justify-between mb-4 sm:mb-6">
     <div class="flex items-center gap-3">
         <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-pink-500/80 to-rose-400/80 flex items-center justify-center shadow-md text-white text-xl">
             🦄
@@ -89,7 +102,7 @@
 </header>
 
 <!-- Status Card 玩家状态栏 -->
-<div class="w-full max-w-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-lg flex gap-3 justify-around mb-4 sm:mb-6 transition-colors">
+<div class="w-full max-w-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-lg flex gap-3 justify-around mb-6 transition-colors">
     <div class="player-info flex-1 text-center p-2 rounded-xl transition-all" id="p1-card">
         <div class="p1-text font-bold text-rose-500 dark:text-rose-400 text-xs">玩家</div>
         <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">金币: <span id="p1-coins" class="font-extrabold">30</span></div>
@@ -107,15 +120,15 @@
     </div>
 </div>
 
-<!-- Main Game Layout (电脑端横排，手机端纵向排列且棋盘宽度自适应保持正方形) -->
-<div class="w-full max-w-4xl flex flex-col md:flex-row gap-4 sm:gap-6 items-center md:items-start justify-center my-auto">
+<!-- Main Game Layout -->
+<div class="w-full max-w-4xl flex flex-col md:flex-row gap-6 items-center md:items-start justify-center my-auto">
   
-  <!-- 棋盘外框：在手机端自适应宽度，且内部格子自动等比缩小 -->
-  <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 sm:p-4 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl transition-colors w-full max-w-[380px] md:max-w-none md:w-auto">
-      <div class="board-outer grid grid-cols-7 gap-1.5 sm:gap-2 w-full" id="board"></div>
+  <!-- 棋盘外框：电脑端固定不随窗口缩放乱变，手机端自适应正方形 -->
+  <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl transition-colors w-full max-w-[360px] md:max-w-none md:w-auto">
+      <div class="board-outer grid grid-cols-7 gap-2 w-full" id="board"></div>
   </div>
 
-  <div class="controls bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl flex flex-col gap-3 sm:gap-4 w-full md:w-80 transition-colors">
+  <div class="controls bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl flex flex-col gap-4 w-full md:w-80 transition-colors">
     <div id="turn-indicator" class="text-center font-bold text-slate-700 dark:text-slate-200 text-base">轮到：玩家</div>
     
     <div id="dir-select" class="flex flex-col gap-1.5">
@@ -133,7 +146,7 @@
     
     <div class="text-xs text-slate-500 dark:text-slate-400 text-center bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200/50 dark:border-slate-700/50" id="action-hint">步骤：请选择策略并掷骰子</div>
     
-    <div class="log-box bg-slate-50 dark:bg-slate-900/80 rounded-xl p-3 h-28 sm:h-36 overflow-y-auto text-xs font-mono text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/50 space-y-1" id="log"></div>
+    <div class="log-box bg-slate-50 dark:bg-slate-900/80 rounded-xl p-3 h-36 overflow-y-auto text-xs font-mono text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/50 space-y-1" id="log"></div>
   </div>
 </div>
 
@@ -154,7 +167,7 @@
     </div>
 </div>
 
-<footer class="w-full max-w-4xl text-center text-xs text-slate-400 dark:text-slate-500 mt-4 sm:mt-6">
+<footer class="w-full max-w-4xl text-center text-xs text-slate-400 dark:text-slate-500 mt-6">
     商业独角兽 • 策略铺地毯
 </footer>
 
@@ -237,7 +250,6 @@ function createBoardDOM() {
   for (let r = SIZE - 1; r >= 0; r--) {
     for (let c = 0; c < SIZE; c++) {
       const cell = document.createElement('div');
-      // 移除了写死的 w-14 h-14，改用纯 cell 样式（自带 aspect-ratio: 1/1 保证永远正方形，且宽度由 grid 自适应均分）
       cell.className = 'cell bg-slate-100 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700/50 flex flex-col items-center justify-center relative cursor-default shadow-sm';
       cell.dataset.x = c;
       cell.dataset.y = r;
@@ -270,9 +282,9 @@ function render() {
 
     if (x === unicorn.x && y === unicorn.y) {
       el.innerHTML = `
-        <div class="unicorn-container flex items-center justify-center gap-0.5 sm:gap-1 text-lg sm:text-2xl animate-float">
+        <div class="unicorn-container flex items-center justify-center gap-1 text-2xl animate-float">
           <span>🦄</span>
-          <span class="dir-indicator text-[10px] sm:text-xs font-black text-rose-500">${DIR_SYMBOLS[unicorn.dir]}</span>
+          <span class="dir-indicator text-xs font-black text-rose-500">${DIR_SYMBOLS[unicorn.dir]}</span>
         </div>
       `;
     }
@@ -626,10 +638,7 @@ function endTurn() {
   gameState = 'MOVE_SELECT';
   const isAI = currentPlayer !== 'p1';
   document.getElementById('roll-btn').disabled = isAI;
-  document.getElementById('action-hint').innerText = !isAI ? "步骤：请选择策略并掷骰子" : `${players[currentPlayer].name} 思考ون...`; // Fixed typo natively below
-  if (isAI) {
-    document.getElementById('action-hint').innerText = !isAI ? "步骤：请选择策略并掷骰子" : `${players[currentPlayer].name} 思考中...`;
-  }
+  document.getElementById('action-hint').innerText = !isAI ? "步骤：请选择策略并掷骰子" : `${players[currentPlayer].name} 思考中...`;
 
   if (isAI) {
     setTimeout(() => startTurnAction(currentPlayer), 1000);
