@@ -44,7 +44,6 @@
         transition: background-color 0.3s ease, color 0.3s ease;
     }
     
-    /* 电脑端固定大小，手机端自适应正方形 */
     .cell {
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
@@ -92,13 +91,19 @@
             <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-700 dark:text-slate-200">
                 商业独角兽
             </h1>
-            <p class="text-xs sm:text-sm text-slate-400 dark:text-slate-400 font-medium">策略铺地毯大作战</p>
+            <p class="text-xs sm:text-sm text-slate-400 dark:text-slate-400 font-medium">占地商战</p>
         </div>
     </div>
     
-    <button id="themeToggleBtn" title="切换深色/浅色模式" class="flex items-center justify-center w-10 h-10 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-amber-400 rounded-xl transition shadow-sm border border-slate-200 dark:border-slate-700">
-        <i id="themeIcon" class="fa-solid fa-moon text-lg"></i>
-    </button>
+    <div class="flex items-center gap-2">
+        <button onclick="openRulesModal()" title="游戏规则" class="flex items-center justify-center px-3 h-10 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 text-xs font-bold rounded-xl transition shadow-sm border border-slate-200 dark:border-slate-700 gap-1.5">
+            <i class="fa-solid fa-circle-question text-pink-500 text-sm"></i>
+            <span class="hidden sm:inline">规则</span>
+        </button>
+        <button id="themeToggleBtn" title="切换深色/浅色模式" class="flex items-center justify-center w-10 h-10 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-amber-400 rounded-xl transition shadow-sm border border-slate-200 dark:border-slate-700">
+            <i id="themeIcon" class="fa-solid fa-moon text-lg"></i>
+        </button>
+    </div>
 </header>
 
 <!-- Status Card 玩家状态栏 -->
@@ -122,8 +127,6 @@
 
 <!-- Main Game Layout -->
 <div class="w-full max-w-4xl flex flex-col md:flex-row gap-6 items-center md:items-start justify-center my-auto">
-  
-  <!-- 棋盘外框：手机端适当加宽（max-w-[340px]），并将网格间距缩小（gap-1 md:gap-2） -->
   <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 md:p-4 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-2xl transition-colors w-full max-w-[340px] md:max-w-none md:w-auto">
       <div class="board-outer grid grid-cols-7 gap-1 md:gap-2 w-full" id="board"></div>
   </div>
@@ -150,6 +153,54 @@
   </div>
 </div>
 
+<!-- 游戏规则弹窗 -->
+<div id="rulesModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl max-w-sm w-full p-5 shadow-2xl animate-pop text-slate-800 dark:text-slate-100 relative">
+        <button onclick="closeRulesModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        
+        <div class="flex items-center gap-2 mb-3">
+            <i class="fa-solid fa-book-open text-pink-500 text-xl"></i>
+            <h3 class="text-lg font-black text-slate-800 dark:text-slate-100">游戏规则说明</h3>
+        </div>
+
+        <div class="text-xs text-slate-600 dark:text-slate-300 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            <div class="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                <div class="font-bold text-pink-500 mb-1">🎯 游戏目标</div>
+                <p>地毯用尽时即为游戏结束，拥有最多<b>金币</b>的玩家获胜。</p>
+                <p>若金币数相同，则地毯占领总面积更多的玩家获胜。</p>
+            </div>
+
+            <div class="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                <div class="font-bold text-pink-500 mb-1">🎲 回合流程</div>
+                <ol class="list-decimal list-inside space-y-1">
+                    <li><b>选择移动方向</b>：直行、左转、右转，不可向后移动。</li>
+                    <li><b>掷骰子移动</b>：独角兽往前移动对应步数，若到棋盘尽头，将会自动按蛇形环绕转向。</li>
+                    <li><b>支付租金</b>：停下时若停在其他玩家的地毯，需向该玩家支付租金（租金 = 该块同色连通地毯的格子总数）。</li>
+                    <li><b>铺设地毯</b>：在独角兽周围 3x3 范围内选择 2 个相邻格子铺设 1 块 1x2 地毯。</li>
+                </ol>
+            </div>
+
+            <div class="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                <div class="font-bold text-pink-500 mb-1">📐 地毯铺设限制</div>
+                <ul class="list-disc list-inside space-y-1">
+                    <li>必须覆盖 <b>2 个相邻格子</b>。</li>
+                    <li>覆盖两个空白格子</li>
+                    <li>覆盖一格彩色格子和一个空白格子</li>
+                    <li>覆盖两个不同颜色的格子</li>
+                    <li><b>注意：</b>不可覆盖两个同色的格子</li>
+                    <li>若周围 3x3 范围无合法位置可铺，范围会自动扩展至 5x5。</li>
+                </ul>
+            </div>
+        </div>
+
+        <button onclick="closeRulesModal()" class="w-full mt-4 py-2.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold rounded-xl text-xs shadow-md transition active:scale-95">
+            我知道了
+        </button>
+    </div>
+</div>
+
 <!-- 游戏结束弹窗 -->
 <div id="victoryModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl max-w-xs w-full p-5 text-center shadow-2xl animate-pop text-slate-800 dark:text-slate-100">
@@ -172,7 +223,7 @@
 </footer>
 
 <script>
-// --- 音效系统 (Web Audio API 合成) ---
+// --- 音效系统 ---
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx;
 function initAudio() { if (!audioCtx) audioCtx = new AudioContext(); }
@@ -203,7 +254,15 @@ function playSound(type) {
     }
 }
 
-// --- 暗色模式切换逻辑 ---
+// 规则弹窗逻辑
+function openRulesModal() {
+    document.getElementById('rulesModal').classList.remove('hidden');
+}
+function closeRulesModal() {
+    document.getElementById('rulesModal').classList.add('hidden');
+}
+
+// 暗色模式
 function initTheme() {
     const btn = document.getElementById('themeToggleBtn');
     const icon = document.getElementById('themeIcon');
@@ -281,7 +340,6 @@ function render() {
     }
 
     if (x === unicorn.x && y === unicorn.y) {
-      // 关键：在手机上用 text-base / text-[10px]，在电脑上用 md:text-2xl / md:text-xs，让独角兽大小完美适配格子
       el.innerHTML = `
         <div class="unicorn-container flex items-center justify-center gap-0.5 md:gap-1 text-base md:text-2xl animate-float">
           <span>🦄</span>
@@ -305,67 +363,52 @@ function render() {
   document.getElementById('turn-indicator').innerText = `轮到：${players[currentPlayer].name}`;
 }
 
-function moveUnicornStep() {
-  let vec = DIR_VECTORS[unicorn.dir];
-  let nx = unicorn.x + vec.x;
-  let ny = unicorn.y + vec.y;
+// 单步移动推演算法
+function simulateStep(uPos) {
+  let vec = DIR_VECTORS[uPos.dir];
+  let nx = uPos.x + vec.x;
+  let ny = uPos.y + vec.y;
+  let res = { x: uPos.x, y: uPos.y, dir: uPos.dir };
 
   if (ny >= SIZE) {
-    if (unicorn.x === 0) { 
-      if (unicorn.dir !==1){
-        unicorn.dir = 1;
-        return; 
-      }
-    } 
-    else {
-      unicorn.x = (unicorn.x % 2 === 0) ? unicorn.x - 1 : unicorn.x + 1;
-      unicorn.y = SIZE - 1; 
-      unicorn.dir = 2; 
+    if (uPos.x === 0) { 
+      if (uPos.dir !== 1) { res.dir = 1; return res; }
+    } else {
+      res.x = (uPos.x % 2 === 0) ? uPos.x - 1 : uPos.x + 1;
+      res.y = SIZE - 1; res.dir = 2;
     }
-  } 
-  else if (ny < 0) {
-    if (unicorn.x === 6) { 
-      if (unicorn.dir !==3){
-        unicorn.dir = 3;
-        return; 
-      }
+  } else if (ny < 0) {
+    if (uPos.x === 6) { 
+      if (uPos.dir !== 3) { res.dir = 3; return res; }
+    } else {
+      res.x = (uPos.x % 2 === 0) ? uPos.x + 1 : uPos.x - 1;
+      res.y = 0; res.dir = 0;
     }
-    else {
-      unicorn.x = (unicorn.x % 2 === 0) ? unicorn.x + 1 : unicorn.x - 1;
-      unicorn.y = 0;
-      unicorn.dir = 0; 
+  } else if (nx < 0) {
+    if (uPos.y === SIZE - 1) {
+      if (uPos.dir !== 2) { res.dir = 2; return res; }
+    } else {
+      res.y = (uPos.y % 2 === 0) ? uPos.y + 1 : uPos.y - 1;
+      res.x = 0; res.dir = 1;
     }
-  } 
-  else if (nx < 0) {
-    if (unicorn.y === SIZE - 1) {
-      if (unicorn.dir !==2){
-        unicorn.dir = 2;
-        return; 
-      } 
+  } else if (nx >= SIZE) {
+    if (uPos.y === 0) { 
+      if (uPos.dir !== 0) { res.dir = 0; return res; }
+    } else {
+      res.y = (uPos.y % 2 === 0) ? uPos.y - 1 : uPos.y + 1;
+      res.x = SIZE - 1; res.dir = 3;
     }
-    else {
-      unicorn.y = (unicorn.y % 2 === 0) ? unicorn.y + 1 : unicorn.y - 1;
-      unicorn.x = 0;
-      unicorn.dir = 1; 
-    }
-  } 
-  else if (nx >= SIZE) {
-    if (unicorn.y === 0) { 
-      if (unicorn.dir !==0){
-        unicorn.dir = 0;
-        return; 
-      }
+  } else {
+    res.x = nx; res.y = ny;
   }
-    else {
-      unicorn.y = (unicorn.y % 2 === 0) ? unicorn.y - 1 : unicorn.y + 1;
-      unicorn.x = SIZE - 1;
-      unicorn.dir = 3; 
-    }
-  } 
-  else {
-    unicorn.x = nx;
-    unicorn.y = ny;
-  }
+  return res;
+}
+
+function moveUnicornStep() {
+  let nextState = simulateStep(unicorn);
+  unicorn.x = nextState.x;
+  unicorn.y = nextState.y;
+  unicorn.dir = nextState.dir;
 }
 
 document.getElementById('roll-btn').addEventListener('click', () => {
@@ -373,57 +416,105 @@ document.getElementById('roll-btn').addEventListener('click', () => {
   startTurnAction('p1');
 });
 
+// 计算某个地块如果踩中需付出的租金
+function calculateTileRent(targetX, targetY, aiKey) {
+  const stack = boardData[targetY][targetX];
+  if (stack.length === 0) return 0;
+
+  const topOwner = stack[stack.length - 1].owner;
+  if (topOwner === aiKey) return 0;
+
+  return getConnectedAreaSize(targetX, targetY, topOwner);
+}
+
+// BFS 获取某玩家连通块的大小
+function getConnectedAreaSize(startX, startY, ownerKey, customBoard = boardData) {
+  let visited = Array(SIZE).fill(false).map(() => Array(SIZE).fill(false));
+  let queue = [{x: startX, y: startY}];
+  visited[startY][startX] = true;
+  let count = 0;
+
+  while (queue.length > 0) {
+    let curr = queue.shift();
+    count++;
+
+    const neighbors = [
+      {x: curr.x+1, y: curr.y}, {x: curr.x-1, y: curr.y},
+      {x: curr.x, y: curr.y+1}, {x: curr.x, y: curr.y-1}
+    ];
+
+    for (let n of neighbors) {
+      if (n.x >= 0 && n.x < SIZE && n.y >= 0 && n.y < SIZE && !visited[n.y][n.x]) {
+        const nStack = customBoard[n.y][n.x];
+        if (nStack.length > 0 && nStack[nStack.length - 1].owner === ownerKey) {
+          visited[n.y][n.x] = true;
+          queue.push(n);
+        }
+      }
+    }
+  }
+  return count;
+}
+
+// 🧠 深度AI移动评分：评估未来落脚期望、后续威胁与地形策略
 function startTurnAction(playerKey) {
   const isAI = playerKey !== 'p1';
   let actionChoice = 'forward';
   
   if (isAI) {
-    // 💡 战术移动：评估三种转向后，哪种方向能走向空地、或者更靠近敌方领地收租
     const options = ['forward', 'left', 'right'];
     let bestChoice = 'forward';
-    let maxScore = -999;
+    let bestScore = -999999;
 
     options.forEach(opt => {
-      let tempDir = unicorn.dir;
-      if (opt === 'left') tempDir = (unicorn.dir + 3) % 4;
-      if (opt === 'right') tempDir = (unicorn.dir + 1) % 4;
-      
-      let vec = DIR_VECTORS[tempDir];
-      let testX = unicorn.x + vec.x;
-      let testY = unicorn.y + vec.y;
-      
-      let score = 0;
-      if (testX >= 0 && testX < SIZE && testY >= 0 && testY < SIZE) {
-        score += 10;
-        const stack = boardData[testY][testX];
-        
-        if (stack.length === 0) {
-          score += 15; // 极度渴望开拓新领地
+      let initDir = unicorn.dir;
+      if (opt === 'left') initDir = (unicorn.dir + 3) % 4;
+      if (opt === 'right') initDir = (unicorn.dir + 1) % 4;
+
+      let scoreSum = 0;
+
+      // 模拟 1~4 点概率分布下的各种结局
+      for (let steps = 1; steps <= 4; steps++) {
+        let simState = { x: unicorn.x, y: unicorn.y, dir: initDir };
+        for (let s = 0; s < steps; s++) {
+          simState = simulateStep(simState);
+        }
+
+        let tileRent = calculateTileRent(simState.x, simState.y, playerKey);
+        let currentStack = boardData[simState.y][simState.x];
+        let tileOwner = currentStack.length > 0 ? currentStack[currentStack.length - 1].owner : null;
+
+        let evalVal = 0;
+        if (tileOwner === null) {
+          evalVal += 10; // 空地开拓高分
+        } else if (tileOwner === playerKey) {
+          evalVal += 5; // 安全避难
         } else {
-          let topOwner = stack[stack.length - 1].owner;
-          if (topOwner === playerKey) {
-            score += 5; // 回自己家防守/连接
-          } else {
-            score += 25; // 🎯 战术威胁：去踩玩家或另一个机器人的地盘（虽然要交租，但能探路或寻找机会）
+          evalVal -= tileRent * 20; // 严苛惩罚踩高租金
+        }
+
+        // 展望后续潜在铺路机会：统计该落脚点周边可延伸的空地与连片潜力
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            let cx = simState.x + dx, cy = simState.y + dy;
+            if (cx >= 0 && cx < SIZE && cy >= 0 && cy < SIZE) {
+              let sCell = boardData[cy][cx];
+              if (sCell.length === 0) evalVal += 3;
+              else if (sCell[sCell.length - 1].owner === playerKey) evalVal += 5;
+            }
           }
         }
-      } else {
-        score -= 50; // 避免撞墙死胡同
+
+        scoreSum += evalVal;
       }
-      
-      if (score > maxScore) {
-        maxScore = score;
+
+      if (scoreSum > bestScore) {
+        bestScore = scoreSum;
         bestChoice = opt;
       }
     });
 
-    // 保留 10% 的随机性，避免它像机器人一样全知全能，保留一丝“人类失误”的美感
-    if (Math.random() < 0.10) {
-      actionChoice = options[Math.floor(Math.random() * options.length)];
-    } else {
-      actionChoice = bestChoice;
-    }
-
+    actionChoice = bestChoice;
   } else {
     actionChoice = document.getElementById('dir-input').value;
   }
@@ -481,30 +572,7 @@ function checkRent() {
   const topOwner = stack[stack.length - 1].owner;
   if (topOwner === currentPlayer) return;
 
-  let visited = Array(SIZE).fill(false).map(() => Array(SIZE).fill(false));
-  let queue = [{x: unicorn.x, y: unicorn.y}];
-  visited[unicorn.y][unicorn.x] = true;
-  let areaSize = 0;
-
-  while (queue.length > 0) {
-    let curr = queue.shift();
-    areaSize++;
-
-    const neighbors = [
-      {x: curr.x+1, y: curr.y}, {x: curr.x-1, y: curr.y},
-      {x: curr.x, y: curr.y+1}, {x: curr.x, y: curr.y-1}
-    ];
-
-    for (let n of neighbors) {
-      if (n.x >= 0 && n.x < SIZE && n.y >= 0 && n.y < SIZE && !visited[n.y][n.x]) {
-        const nStack = boardData[n.y][n.x];
-        if (nStack.length > 0 && nStack[nStack.length - 1].owner === topOwner) {
-          visited[n.y][n.x] = true;
-          queue.push(n);
-        }
-      }
-    }
-  }
+  let areaSize = getConnectedAreaSize(unicorn.x, unicorn.y, topOwner);
 
   playSound('rent');
   log(`⚠️ 踩中 ${players[topOwner].name} 的地盘！连通面积 ${areaSize} 格，支付 ${areaSize} 金币租金！`);
@@ -624,6 +692,7 @@ function validateAndPlaceCarpet(pos1, pos2, playerKey) {
   return true;
 }
 
+// 🧠 算法核心：评估铺设某位置后将形成的“最大连通领地大小”与“破敌价值”
 function aiExecuteCarpet(aiKey) {
   if (gameState !== 'CARPET_SELECT') return;
 
@@ -658,57 +727,61 @@ function aiExecuteCarpet(aiKey) {
   }
 
   if (validPairs.length > 0) {
-    // 💡 核心机制：给每个 AI 赋予不同的“性格偏好”
-    // 机器人1（p2）：偏爱种田扩张、连片收钱
-    // 机器人2（p3）：偏爱破坏、喜欢去卡断别人（不管是玩家还是机器人1）连成大片的领地
-    let isAggressive = (aiKey === 'p3'); 
+    // 动态评估谁是当前场上威胁最大的敌人（金币最高或领地最大者）
+    let otherPlayers = playerKeys.filter(k => k !== aiKey);
 
     let scoredPairs = validPairs.map(pair => {
-      let score = 0;
       let [p1, p2] = pair;
-      
-      const s1 = boardData[p1.y][p1.x];
-      const s2 = boardData[p2.y][p2.x];
-      
-      let top1 = s1.length > 0 ? s1[s1.length - 1].owner : null;
-      let top2 = s2.length > 0 ? s2[s2.length - 1].owner : null;
+      let score = 0;
 
-      // 1. 忠于自己的领地扩张
-      if (top1 === aiKey) score += (isAggressive ? 10 : 20);
-      if (top2 === aiKey) score += (isAggressive ? 10 : 20);
+      let adjacentMyTiles = 0;
+      let coveredOpponentValue = 0;
 
-      // 2. 动态敌意：不仅防范玩家，也防范另一个对手（无论是谁连成了大片，都要去干扰）
-      const opponents = playerKeys.filter(k => k !== aiKey);
-      opponents.forEach(opp => {
-        if (top1 === opp || top2 === opp) {
-          // 如果对方在这里有地盘，激进型AI（机器人2）会更倾向于去干扰拆台
-          score += isAggressive ? 30 : 15;
+      [p1, p2].forEach(p => {
+        const s = boardData[p.y][p.x];
+        if (s.length > 0) {
+          let topOwner = s[s.length - 1].owner;
+          if (topOwner !== aiKey) {
+            // 获取被覆盖对手的连通领地大小
+            let oppArea = getConnectedAreaSize(p.x, p.y, topOwner);
+            
+            // 针对性打击：如果被覆盖的是场上财富/领地领先的对手（包含另一个 AI），给予额外破防奖励
+            let opponentGold = players[topOwner].coins;
+            let targetWeight = 1.0 + (opponentGold / 50.0); // 金币越多的敌人，越值得压制
+            
+            coveredOpponentValue += oppArea * 12 * targetWeight;
+          }
         }
+
+        // 检查周围四方向是否有自己的地块（大幅鼓励扩大并连通自身领地）
+        const adjDirs = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
+        adjDirs.forEach(d => {
+          let ax = p.x + d.x, ay = p.y + d.y;
+          if (ax >= 0 && ax < SIZE && ay >= 0 && ay < SIZE) {
+            let adjStack = boardData[ay][ax];
+            if (adjStack.length > 0 && adjStack[adjStack.length - 1].owner === aiKey) {
+              adjacentMyTiles += getConnectedAreaSize(ax, ay, aiKey);
+            }
+          }
+        });
       });
 
-      // 3. 空白地盘争夺
-      if (!top1) score += 8;
-      if (!top2) score += 8;
-
-      // 4. 随机心眼扰动（让每次选择有差异）
-      score += (Math.random() * 12 - 6);
+      // 得分计算模型：
+      // 1. 连通与扩张自己的大片领地
+      score += adjacentMyTiles * 12; 
+      // 2. 压制与分割任何威胁最大的对手（包括另一个AI）
+      score += coveredOpponentValue; 
+      // 3. 占据中心高价值地块微量加分
+      let centerDist = Math.abs(p1.x - 3) + Math.abs(p1.y - 3) + Math.abs(p2.x - 3) + Math.abs(p2.y - 3);
+      score += (14 - centerDist);
 
       return { pair, score };
     });
 
     scoredPairs.sort((a, b) => b.score - a.score);
 
-    // 独立且各怀心思的选择策略
-    let chosenPair;
-    let rand = Math.random();
-    if (rand < 0.7 && scoredPairs.length > 0) {
-      // 挑出前两名最优战术解
-      let topCandidates = scoredPairs.slice(0, Math.min(2, scoredPairs.length));
-      chosenPair = topCandidates[Math.floor(Math.random() * topCandidates.length)].pair;
-    } else {
-      chosenPair = validPairs[Math.floor(Math.random() * validPairs.length)];
-    }
-
+    // AI 选取最高分的战略解
+    let chosenPair = scoredPairs[0].pair;
     validateAndPlaceCarpet(chosenPair[0], chosenPair[1], aiKey);
   } else {
     log(`${players[aiKey].name} 无合法位置可铺，跳过`);
@@ -716,6 +789,7 @@ function aiExecuteCarpet(aiKey) {
 
   endTurn();
 }
+
 function endTurn() {
   resetSelection();
   render();
@@ -761,7 +835,7 @@ function checkGameOver() {
 
   let sorted = [...playerKeys].sort((a, b) => {
     if (players[b].coins !== players[a].coins) return players[b].coins - players[a].coins;
-    return areas[b] - areas[b];
+    return areas[b] - areas[a];
   });
 
   let winnerKey = sorted[0];
