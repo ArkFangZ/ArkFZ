@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>寻机头小游戏 - 双人联机版</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- MQTT Browser Client (Matching Commercial Unicorn Edition) -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    animation: {
+                        'pop': 'pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                        'bounce-short': 'bounceShort 0.5s ease duration-1',
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        pop: {
+                            '0%': { transform: 'scale(0.8)', opacity: '0.5' },
+                            '100%': { transform: 'scale(1)', opacity: '1' },
+                        },
+                        bounceShort: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-8px)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .grid-cell {
+            aspect-ratio: 1 / 1;
+            transition: all 0.15s ease-in-out;
+        }
+        .grid-cell:hover:not(.revealed):not(.disabled) {
+            transform: scale(1.06);
+            filter: brightness(1.12);
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.5);
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-between p-3 sm:p-5">
+
+    <!-- Top Navigation Header -->
+    <header class="w-full max-w-6xl flex flex-wrap items-center justify-between gap-3 mb-3 sm:mb-4">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                <i class="fa-solid fa-plane text-white text-xl sm:text-2xl"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-lg sm:text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-800 dark:from-white dark:via-slate-200 dark:to-slate-400">
+                        寻机头 <span class="text-xs sm:text-sm font-semibold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">双人联机版</span>
+                    </h1>
+                </div>
+                <p id="currentModeDesc" class="text-xs text-slate-500 dark:text-slate-400">请先创建或加入房间以开始对战</p>
+            </div>
+        </div>
+
+        <!-- Connection & Turn Banner -->
+        <div id="turnBanner" class="hidden flex items-center gap-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md">
+            <div class="flex flex-col items-center border-r border-slate-200 dark:border-slate-700 pr-3">
+                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">回合轮次</span>
+                <span id="turnCounterText" class="text-sm font-black text-indigo-600 dark:text-indigo-400">第 1 轮</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div id="turnIndicatorBadge" class="flex items-center gap-1.5 px-3 py-1 rounded-xl font-bold text-xs">
+                    <i id="turnIcon" class="fa-solid fa-spinner animate-spin"></i>
+                    <span id="turnStatusText">准备中...</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2">
+            <!-- Hide/Show Opponent Board Button -->
+            <button id="toggleOpponentBtn" title="折叠/展开对手盘面" class="hidden flex items-center gap-1.5 px-3 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition border border-slate-300 dark:border-slate-700">
+                <i id="toggleOpponentIcon" class="fa-solid fa-eye-slash"></i>
+                <span id="toggleOpponentText" class="hidden sm:inline">隐藏对方</span>
+            </button>
+
+            <!-- Theme Toggle -->
+            <button id="themeToggleBtn" title="切换深色/浅色模式" class="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-amber-400 rounded-xl transition border border-slate-300 dark:border-slate-700">
+                <i id="themeIcon" class="fa-solid fa-moon text-lg"></i>
+            </button>
+
+            <!-- Help / Aircraft Preview Button -->
+            <button id="helpBtn" class="flex items-center gap-1.5 px-3 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition border border-slate-300 dark:border-slate-700">
+                <i class="fa-solid fa-book-open text-blue-500"></i>
+                <span class="hidden sm:inline">机型图纸</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Area: Dual Boards Layout -->
+    <main class="w-full max-w-6xl flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6 items-center lg:items-start justify-center my-auto">
+        
+        <!-- LEFT BOARD: MY BOARD (Interactive) -->
+        <div class="w-full max-w-[440px] flex flex-col items-center">
+            <div class="w-full flex items-center justify-between mb-2 px-1">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-blue-500 animate-pulse"></span>
+                    <h2 class="text-sm font-bold tracking-wide flex items-center gap-1.5">
+                        我的棋盘 <span class="text-[10px] bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-full border border-blue-500/20 font-extrabold">点击此处操作</span>
+                    </h2>
+                </div>
+                <div class="flex items-center gap-3 text-xs">
+                    <span class="text-slate-400">已用步数: <strong id="myClickCount" class="text-blue-600 dark:text-blue-400 font-black">0</strong></span>
+                    <span class="text-slate-400">已找机头: <strong id="myHeadsFound" class="text-red-500 font-black">0</strong><span id="myTotalGoalText" class="text-slate-500">/2</span></span>
+                </div>
+            </div>
+
+            <!-- Board container -->
+            <div class="bg-slate-200 dark:bg-slate-800 p-2.5 sm:p-3 rounded-2xl border-2 border-blue-500/30 dark:border-blue-500/20 shadow-2xl w-full">
+                <div id="myGameBoard" class="grid grid-cols-10 gap-1 sm:gap-1.5 w-full aspect-square relative">
+                    <!-- 100 cells generated via JS -->
+                </div>
+            </div>
+
+            <!-- My Planes Status Bar -->
+            <div id="myPlanesStatus" class="w-full grid grid-cols-2 gap-2 mt-3 text-xs">
+                <!-- Dynamic Plane Status Badges -->
+            </div>
+        </div>
+
+        <!-- RIGHT BOARD: OPPONENT BOARD (Read-Only Mirror) -->
+        <div id="opponentBoardWrapper" class="w-full max-w-[440px] flex flex-col items-center transition-all duration-300">
+            <div class="w-full flex items-center justify-between mb-2 px-1">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                    <h2 class="text-sm font-bold tracking-wide text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                        对方的棋盘 <span class="text-[10px] bg-slate-500/10 text-slate-500 px-2 py-0.5 rounded-full border border-slate-500/20">实时同步中</span>
+                    </h2>
+                </div>
+                <div class="flex items-center gap-3 text-xs">
+                    <span class="text-slate-400">对方步数: <strong id="oppClickCount" class="text-amber-500 font-black">0</strong></span>
+                    <span class="text-slate-400">对方机头: <strong id="oppHeadsFound" class="text-red-500 font-black">0</strong><span id="oppTotalGoalText" class="text-slate-500">/2</span></span>
+                </div>
+            </div>
+
+            <!-- Opponent Board Container -->
+            <div class="bg-slate-200/70 dark:bg-slate-800/60 p-2.5 sm:p-3 rounded-2xl border border-slate-300 dark:border-slate-700 shadow-xl w-full">
+                <div id="oppGameBoard" class="grid grid-cols-10 gap-1 sm:gap-1.5 w-full aspect-square pointer-events-none opacity-90">
+                    <!-- 100 cells generated via JS for Opponent -->
+                </div>
+            </div>
+
+            <!-- Opponent Planes Status Bar -->
+            <div id="oppPlanesStatus" class="w-full grid grid-cols-2 gap-2 mt-3 text-xs">
+                <!-- Dynamic Opponent Plane Badges -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Legend Footer -->
+    <footer class="w-full max-w-6xl flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 dark:text-slate-500 mt-4 border-t border-slate-200 dark:border-slate-800 pt-3">
+        <div class="flex items-center gap-4">
+            <span class="font-bold text-slate-500">图例：</span>
+            <div class="flex items-center gap-1.5">
+                <div class="w-3.5 h-3.5 rounded bg-red-500 flex items-center justify-center text-[7px] text-white"><i class="fa-solid fa-crosshairs"></i></div>
+                <span>机头(红)</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <div class="w-3.5 h-3.5 rounded bg-blue-500"></div>
+                <span>机身(蓝)</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <div class="w-3.5 h-3.5 rounded bg-white border border-slate-300"></div>
+                <span>未命中(白)</span>
+            </div>
+        </div>
+        <div id="freeSearchBanner" class="hidden flex items-center gap-3">
+            <span class="text-amber-500 font-bold animate-pulse">
+                <i class="fa-solid fa-unlock"></i> 自由探索中
+            </span>
+            <div class="flex items-center gap-1.5">
+                <button onclick="requestRematch()" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition flex items-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-rotate-right"></i> 再来一局
+                </button>
+                <button onclick="leaveRoomToLobby()" class="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg text-xs transition flex items-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-shapes"></i> 换模式
+                </button>
+            </div>
+        </div>
+        <div class="text-[11px]">
+            双人联机竞技版 • 严格公平轮数
+        </div>
+    </footer>
+
+    <!-- Initial Multiplayer Lobby Modal -->
+    <div id="lobbyModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative text-slate-800 dark:text-slate-100">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30 mx-auto mb-3">
+                    <i class="fa-solid fa-users-rays text-white text-3xl"></i>
+                </div>
+                <h2 class="text-2xl font-extrabold tracking-tight">寻机头 • 联机大厅</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">创建房间邀请好友，或输入房间号加入游戏</p>
+            </div>
+
+            <!-- Tab Buttons -->
+            <div class="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl mb-6">
+                <button id="tabCreateBtn" onclick="switchLobbyTab('create')" class="flex-1 py-2 rounded-lg text-xs font-bold transition bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm">
+                    创建房间
+                </button>
+                <button id="tabJoinBtn" onclick="switchLobbyTab('join')" class="flex-1 py-2 rounded-lg text-xs font-bold transition text-slate-500 dark:text-slate-400 hover:text-slate-800">
+                    加入房间
+                </button>
+            </div>
+
+            <!-- CREATE ROOM TAB CONTENT -->
+            <div id="tabCreateContent" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">选择局内对战机型模式</label>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <button onclick="selectHostMode(1)" id="modeOpt1" class="mode-select-btn p-3 rounded-xl border-2 border-blue-500 bg-blue-500/10 text-left font-bold transition">
+                            <div class="text-blue-600 dark:text-blue-400">① 经典模式</div>
+                            <div class="text-[10px] text-slate-400 font-normal">2架经典机型①</div>
+                        </button>
+                        <button onclick="selectHostMode(2)" id="modeOpt2" class="mode-select-btn p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-left font-bold transition hover:border-slate-400">
+                            <div class="text-indigo-600 dark:text-indigo-400">② 进阶斜翼</div>
+                            <div class="text-[10px] text-slate-400 font-normal">2架斜翼机型②</div>
+                        </button>
+                        <button onclick="selectHostMode(3)" id="modeOpt3" class="mode-select-btn p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-left font-bold transition hover:border-slate-400">
+                            <div class="text-violet-600 dark:text-violet-400">③ 进阶十字</div>
+                            <div class="text-[10px] text-slate-400 font-normal">2架十字机型③</div>
+                        </button>
+                        <button onclick="selectHostMode(4)" id="modeOpt4" class="mode-select-btn p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-left font-bold transition hover:border-slate-400">
+                            <div class="text-amber-500">④ 大混战</div>
+                            <div class="text-[10px] text-slate-400 font-normal">①②③机型各1架</div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <button id="createRoomBtn" onclick="createRoom()" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-sm transition shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus-circle"></i> 生成房间代码
+                    </button>
+                </div>
+
+                <!-- Generated Room Code Display -->
+                <div id="roomCreatedBox" class="hidden bg-slate-50 dark:bg-slate-900/80 p-4 rounded-2xl border border-blue-500/30 text-center animate-pop">
+                    <span class="text-xs text-slate-400 font-bold block mb-1">你的房间号 (发送给好友)</span>
+                    <div class="flex items-center justify-center gap-2">
+                        <span id="createdRoomCode" class="text-3xl font-black tracking-widest text-blue-600 dark:text-blue-400 font-mono">------</span>
+                        <button onclick="copyRoomCode()" class="p-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded-lg text-xs" title="复制代码">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="mt-3 flex items-center justify-center gap-2 text-xs text-amber-500 font-semibold">
+                        <i class="fa-solid fa-circle-notch animate-spin"></i> 等待好友加入中...
+                    </div>
+                </div>
+            </div>
+
+            <!-- JOIN ROOM TAB CONTENT -->
+            <div id="tabJoinContent" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">请输入房主的 6 位房间号</label>
+                    <input type="text" id="joinRoomInput" maxlength="6" placeholder="例如：849201" class="w-full py-3 px-4 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-center text-xl font-mono font-bold tracking-widest uppercase focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <button id="joinRoomBtn" onclick="joinRoom()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-sm transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-right-to-bracket"></i> 连接房间
+                </button>
+
+                <div id="joinStatusText" class="text-center text-xs font-semibold text-slate-400"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aircraft Showcase Modal -->
+    <div id="helpModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative text-slate-800 dark:text-slate-100 max-h-[90vh] overflow-y-auto">
+            <button id="closeHelpBtn" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-xl font-bold mb-1 flex items-center gap-2">
+                <i class="fa-solid fa-plane text-blue-500"></i>
+                三种机型示意图及规则
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                红色方格为<strong>机头</strong>，蓝色为<strong>机身</strong>。双方各自在自己的棋盘寻找机头！
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+                <div class="bg-slate-100 dark:bg-slate-900/80 rounded-xl p-2.5 border border-slate-200 dark:border-slate-700/60 flex flex-col items-center">
+                    <span class="text-xs font-bold text-blue-500 mb-1.5">① 号机型</span>
+                    <div id="previewPlane1" class="grid grid-cols-5 gap-0.5 w-28 bg-slate-300 dark:bg-slate-800 p-1 rounded-lg"></div>
+                </div>
+                <div class="bg-slate-100 dark:bg-slate-900/80 rounded-xl p-2.5 border border-slate-200 dark:border-slate-700/60 flex flex-col items-center">
+                    <span class="text-xs font-bold text-indigo-500 mb-1.5">② 号机型</span>
+                    <div id="previewPlane2" class="grid grid-cols-5 gap-0.5 w-28 bg-slate-300 dark:bg-slate-800 p-1 rounded-lg"></div>
+                </div>
+                <div class="bg-slate-100 dark:bg-slate-900/80 rounded-xl p-2.5 border border-slate-200 dark:border-slate-700/60 flex flex-col items-center">
+                    <span class="text-xs font-bold text-violet-500 mb-1.5">③ 号机型</span>
+                    <div id="previewPlane3" class="grid grid-cols-5 gap-0.5 w-28 bg-slate-300 dark:bg-slate-800 p-1 rounded-lg"></div>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 rounded-xl p-3 text-xs space-y-1 text-slate-600 dark:text-slate-300 mb-4">
+                <p>• <strong>公平回合规则：</strong>双方轮流点击，顶部实时显示当前轮次。</p>
+                <p>• <strong>先手补一步：</strong>若先手玩家率先找齐机头，后手玩家在本轮可再进行最后一步；若后手也找齐则算平局！</p>
+            </div>
+
+            <button onclick="document.getElementById('helpModal').classList.add('hidden')" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-sm transition">
+                返回游戏
+            </button>
+        </div>
+    </div>
+
+    <!-- Match Result Modal -->
+    <div id="resultModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl animate-pop text-slate-800 dark:text-slate-100">
+            <div id="resultIconBox" class="w-16 h-16 rounded-full flex items-center justify-center text-3xl mx-auto mb-3 animate-bounce-short">
+                <i id="resultIcon" class="fa-solid fa-trophy"></i>
+            </div>
+            <h3 id="resultTitle" class="text-2xl font-extrabold mb-1">大获全胜！</h3>
+            <p id="resultDesc" class="text-xs text-slate-500 dark:text-slate-400 mb-4">你在本局对决中率先毁掉了所有对方机头！</p>
+
+            <div class="bg-slate-100 dark:bg-slate-900/80 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700/50 mb-5 grid grid-cols-2 gap-2 text-xs">
+                <div>
+                    <span class="text-slate-400 block mb-0.5">你的总步数</span>
+                    <span id="resMyClicks" class="text-xl font-extrabold text-blue-500">0</span>
+                </div>
+                <div>
+                    <span class="text-slate-400 block mb-0.5">对方步数</span>
+                    <span id="resOppClicks" class="text-xl font-extrabold text-amber-500">0</span>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <button id="freeExploreBtn" onclick="enableFreeSearchMode()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-magnifying-glass"></i> 查看当局 / 继续探索
+                </button>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="rematchBtn" onclick="requestRematch()" class="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition">
+                        再来一局
+                    </button>
+                    <button id="changeModeResultBtn" onclick="leaveRoomToLobby()" class="py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition">
+                        切换模式
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white dark:bg-white dark:text-slate-900 px-4 py-2 rounded-xl text-xs font-bold shadow-2xl z-50 transition-all opacity-0 pointer-events-none transform translate-y-2">
+        提示信息
+    </div>
+
+    <script>
+        // Constants & Aircraft Specifications
+        const BOARD_SIZE = 10;
+        const PLANE_TYPES = {
+            1: [
+                { dx: 0, dy: 0, isHead: true },
+                { dx: -2, dy: 1, isHead: false }, { dx: -1, dy: 1, isHead: false }, { dx: 0, dy: 1, isHead: false }, { dx: 1, dy: 1, isHead: false }, { dx: 2, dy: 1, isHead: false },
+                { dx: 0, dy: 2, isHead: false },
+                { dx: -1, dy: 3, isHead: false }, { dx: 0, dy: 3, isHead: false }, { dx: 1, dy: 3, isHead: false }
+            ],
+            2: [
+                { dx: 0, dy: 0, isHead: true },
+                { dx: -1, dy: 1, isHead: false }, { dx: 0, dy: 1, isHead: false }, { dx: 1, dy: 1, isHead: false },
+                { dx: -2, dy: 2, isHead: false }, { dx: 0, dy: 2, isHead: false }, { dx: 2, dy: 2, isHead: false },
+                { dx: 0, dy: 3, isHead: false },
+                { dx: -1, dy: 4, isHead: false }, { dx: 0, dy: 4, isHead: false }, { dx: 1, dy: 4, isHead: false }
+            ],
+            3: [
+                { dx: 0, dy: 0, isHead: true },
+                { dx: 0, dy: 1, isHead: false },
+                { dx: -2, dy: 2, isHead: false }, { dx: -1, dy: 2, isHead: false }, { dx: 0, dy: 2, isHead: false }, { dx: 1, dy: 2, isHead: false }, { dx: 2, dy: 2, isHead: false },
+                { dx: 0, dy: 3, isHead: false },
+                { dx: -1, dy: 4, isHead: false }, { dx: 1, dy: 4, isHead: false }
+            ]
+        };
+
+        const GAME_MODES = {
+            1: { name: '经典模式', desc: '10×10 棋盘寻找 2 架机型①', planes: [1, 1], allowAdjacent: false },
+            2: { name: '进阶斜翼', desc: '10×10 棋盘寻找 2 架机型②', planes: [2, 2], allowAdjacent: false },
+            3: { name: '进阶十字', desc: '10×10 棋盘寻找 2 架机型③', planes: [3, 3], allowAdjacent: false },
+            4: { name: '大混战', desc: '10×10 棋盘寻找 ①、②、③号机各 1 架', planes: [1, 2, 3], allowAdjacent: true }
+        };
+
+        // Network & Multiplayer State (MQTT Engine matching Commercial Unicorn Edition)
+        let mqttClient = null;
+        let currentRoomCode = "";
+        let isHost = false;
+        let myClientId = "user_" + Math.random().toString(36).substring(2, 9);
+        let selectedHostMode = 1;
+
+        // Game Turn & Match State
+        let currentMode = 1;
+        let myBoardState = [];
+        let myAirplanes = [];
+        let myClickCount = 0;
+        let myHeadsFound = 0;
+        let myTotalHeadsGoal = 0;
+
+        let oppClickCount = 0;
+        let oppHeadsFound = 0;
+        let oppTotalHeadsGoal = 0;
+
+        let isMyTurn = false;
+        let currentRound = 1;
+        let isFirstPlayer = false; // P1
+        let p1FoundAllTurn = -1; // Round index when P1 found all heads
+
+        let isMatchEnded = false;
+        let isFreeSearching = false;
+        let isOpponentHidden = false;
+
+        // Sound Effects (Web Audio API)
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+        }
+
+        function playTone(freq, type, duration, gainVal = 0.1) {
+            try {
+                if (!audioCtx) return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
+
+        function playSound(type) {
+            initAudio();
+            if (type === 'miss') playTone(220, 'sine', 0.12, 0.05);
+            else if (type === 'hit') playTone(440, 'triangle', 0.18, 0.12);
+            else if (type === 'head') {
+                playTone(587, 'square', 0.1, 0.15);
+                setTimeout(() => playTone(880, 'square', 0.2, 0.15), 70);
+            } else if (type === 'win') {
+                [392, 523, 659, 784].forEach((f, idx) => {
+                    setTimeout(() => playTone(f, 'triangle', 0.2, 0.15), idx * 90);
+                });
+            } else if (type === 'lose') {
+                [400, 350, 300, 250].forEach((f, idx) => {
+                    setTimeout(() => playTone(f, 'sawtooth', 0.15, 0.1), idx * 80);
+                });
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-2');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-2');
+            }, 2500);
+        }
+
+        // MQTT Networking Infrastructure
+        function closeMQTT() {
+            if (mqttClient) {
+                try { mqttClient.end(true); } catch(e){}
+                mqttClient = null;
+            }
+        }
+
+        function connectMQTTAndJoinRoom(isCreating, code) {
+            closeMQTT();
+            currentRoomCode = code;
+            mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+            const topic = `headhunter_room_${currentRoomCode}`;
+
+            let roomVerified = false;
+
+            mqttClient.on('connect', () => {
+                if (!mqttClient) return;
+                mqttClient.subscribe(topic, (err) => {
+                    if (err) return;
+                    if (isCreating) {
+                        showToast("房间已成功创建，等待好友加入");
+                    } else {
+                        sendNetworkMsg('PING_ROOM', {});
+                        setTimeout(() => {
+                            if (!roomVerified) {
+                                showToast("未找到此房间，请检查房间码！");
+                                document.getElementById('joinStatusText').textContent = "未找到房间，请重新核对";
+                                closeMQTT();
+                            }
+                        }, 1200);
+                    }
+                });
+            });
+
+            mqttClient.on('message', (t, payload) => {
+                try {
+                    const msg = JSON.parse(payload.toString());
+                    if (msg.senderId === myClientId) return; // Skip own broadcast
+
+                    if (msg.type === 'PONG_ROOM' && !isCreating) {
+                        roomVerified = true;
+                        document.getElementById('joinStatusText').textContent = "成功连上房间，等待房主发牌...";
+                        sendNetworkMsg('JOIN_ROOM', {});
+                    } else {
+                        roomVerified = true;
+                        handleIncomingNetworkMsg(msg);
+                    }
+                } catch(e) {}
+            });
+        }
+
+        function sendNetworkMsg(type, data = {}) {
+            if (mqttClient && mqttClient.connected) {
+                mqttClient.publish(`headhunter_room_${currentRoomCode}`, JSON.stringify({
+                    senderId: myClientId,
+                    type: type,
+                    data: data
+                }));
+            }
+        }
+
+        function createRoom() {
+            isHost = true;
+            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            document.getElementById('createdRoomCode').textContent = code;
+            document.getElementById('roomCreatedBox').classList.remove('hidden');
+            document.getElementById('createRoomBtn').classList.add('hidden');
+
+            connectMQTTAndJoinRoom(true, code);
+        }
+
+        function joinRoom() {
+            const code = document.getElementById('joinRoomInput').value.trim();
+            if (code.length !== 6) {
+                showToast("请输入有效6位数字房间号");
+                return;
+            }
+
+            document.getElementById('joinStatusText').textContent = "正在连接到 MQTT 网络中...";
+            isHost = false;
+            connectMQTTAndJoinRoom(false, code);
+        }
+
+        function handleIncomingNetworkMsg(msg) {
+            if (msg.type === 'PING_ROOM' && isHost) {
+                sendNetworkMsg('PONG_ROOM', {});
+            } else if (msg.type === 'JOIN_ROOM' && isHost) {
+                const hostIsFirst = Math.random() < 0.5;
+                sendNetworkMsg('START_MATCH', {
+                    mode: selectedHostMode,
+                    hostIsFirst: hostIsFirst
+                });
+                document.getElementById('lobbyModal').classList.add('hidden');
+                document.getElementById('toggleOpponentBtn').classList.remove('hidden');
+                startNewMatch(selectedHostMode, hostIsFirst);
+            } else if (msg.type === 'START_MATCH') {
+                document.getElementById('lobbyModal').classList.add('hidden');
+                document.getElementById('toggleOpponentBtn').classList.remove('hidden');
+                startNewMatch(msg.data.mode, isHost ? msg.data.hostIsFirst : !msg.data.hostIsFirst);
+            } else if (msg.type === 'MOVE') {
+                handleOpponentMoveData(msg.data);
+            } else if (msg.type === 'REMATCH_REQ') {
+                if (confirm("对方请求再来一局，是否同意？")) {
+                    if (isHost) {
+                        const hostIsFirst = Math.random() < 0.5;
+                        sendNetworkMsg('START_MATCH', { mode: currentMode, hostIsFirst: hostIsFirst });
+                        startNewMatch(currentMode, hostIsFirst);
+                    } else {
+                        sendNetworkMsg('ACCEPT_REMATCH', {});
+                    }
+                }
+            } else if (msg.type === 'ACCEPT_REMATCH') {
+                if (isHost) {
+                    const hostIsFirst = Math.random() < 0.5;
+                    sendNetworkMsg('START_MATCH', { mode: currentMode, hostIsFirst: hostIsFirst });
+                    startNewMatch(currentMode, hostIsFirst);
+                }
+            }
+        }
+
+        // Handle Click on My Board
+        function handleMyCellClick(r, c) {
+            if (isMatchEnded && !isFreeSearching) {
+                showToast("比赛已结束");
+                return;
+            }
+
+            if (!isFreeSearching) {
+                if (!isMyTurn) {
+                    showToast("请等待对方思考行动...");
+                    return;
+                }
+            }
+
+            const cellState = myBoardState[r][c];
+            if (cellState.revealed) return;
+
+            cellState.revealed = true;
+            myClickCount++;
+            document.getElementById('myClickCount').textContent = myClickCount;
+
+            const cellEl = document.getElementById(`my-cell-${r}-${c}`);
+            cellEl.classList.add('revealed', 'animate-pop');
+
+            let hitType = 'miss';
+            let hitPlaneId = cellState.planeId;
+
+            if (cellState.hasAirplane) {
+                if (cellState.isHead) {
+                    hitType = 'head';
+                    cellEl.className = `grid-cell bg-red-500 border border-red-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg animate-pop`;
+                    cellEl.innerHTML = `<i class="fa-solid fa-crosshairs text-xs sm:text-base animate-bounce-short"></i>`;
+                    playSound('head');
+
+                    myHeadsFound++;
+                    document.getElementById('myHeadsFound').textContent = myHeadsFound;
+                    updatePlaneStatusUI('my', cellState.planeId, true);
+                } else {
+                    hitType = 'hit';
+                    cellEl.className = `grid-cell bg-blue-500 border border-blue-600 rounded-lg flex items-center justify-center text-white shadow-md animate-pop`;
+                    cellEl.innerHTML = `<i class="fa-solid fa-circle text-[6px] sm:text-[8px] opacity-70"></i>`;
+                    playSound('hit');
+                }
+            } else {
+                cellEl.className = `grid-cell bg-white dark:bg-slate-100 border border-slate-300 dark:border-slate-300 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500 shadow-inner animate-pop`;
+                cellEl.innerHTML = `<i class="fa-solid fa-xmark text-xs opacity-50"></i>`;
+                playSound('miss');
+            }
+
+            // Broadcast Move over MQTT
+            sendNetworkMsg('MOVE', {
+                row: r,
+                col: c,
+                hitType: hitType,
+                planeId: hitPlaneId,
+                clickCount: myClickCount,
+                headsFound: myHeadsFound,
+                round: currentRound
+            });
+
+            if (!isFreeSearching) {
+                evaluateTurnProgress();
+            } else {
+                if (myHeadsFound === myTotalHeadsGoal) {
+                    showToast("🎉 你在自由寻找中找齐了所有机头！");
+                }
+            }
+        }
+
+        function requestRematch() {
+            sendNetworkMsg('REMATCH_REQ', {});
+            showToast("已向对方发送再来一局请求...");
+        }
+
+        function leaveRoomToLobby() {
+            closeMQTT();
+            document.getElementById('resultModal').classList.add('hidden');
+            document.getElementById('lobbyModal').classList.remove('hidden');
+            document.getElementById('roomCreatedBox').classList.add('hidden');
+            document.getElementById('createRoomBtn').classList.remove('hidden');
+        }
+
+        // Dark / Light Theme Setup
+        function initTheme() {
+            const themeToggleBtn = document.getElementById('themeToggleBtn');
+            const themeIcon = document.getElementById('themeIcon');
+            const savedTheme = localStorage.getItem('airplane_game_theme') || 'dark';
+
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+                themeIcon.className = 'fa-solid fa-sun text-lg text-amber-400';
+            } else {
+                document.documentElement.classList.remove('dark');
+                themeIcon.className = 'fa-solid fa-moon text-lg text-slate-700';
+            }
+
+            themeToggleBtn.addEventListener('click', () => {
+                const isDark = document.documentElement.classList.toggle('dark');
+                localStorage.setItem('airplane_game_theme', isDark ? 'dark' : 'light');
+                themeIcon.className = isDark ? 'fa-solid fa-sun text-lg text-amber-400' : 'fa-solid fa-moon text-lg text-slate-700';
+            });
+        }
+
+        // Shape rotation helper
+        function getRotatedShape(typeId, rotation) {
+            const baseShape = PLANE_TYPES[typeId];
+            return baseShape.map(b => {
+                let rx = b.dx, ry = b.dy;
+                if (rotation === 1) { rx = -b.dy; ry = b.dx; }
+                else if (rotation === 2) { rx = -b.dx; ry = -b.dy; }
+                else if (rotation === 3) { rx = b.dy; ry = -b.dx; }
+                return { dx: rx, dy: ry, isHead: b.isHead };
+            });
+        }
+
+        // Generate Random Board
+        function generateAirplaneLayout(planeTypes, allowAdjacent) {
+            let globalAttempts = 0;
+
+            while (globalAttempts < 2000) {
+                globalAttempts++;
+                const tempBoard = Array.from({ length: BOARD_SIZE }, (_, r) =>
+                    Array.from({ length: BOARD_SIZE }, (_, c) => ({
+                        row: r, col: c, hasAirplane: false, isHead: false, planeId: null, revealed: false
+                    }))
+                );
+                
+                let placed = [];
+                let allPlaced = true;
+
+                for (let i = 0; i < planeTypes.length; i++) {
+                    const typeId = planeTypes[i];
+                    let attempts = 0;
+                    let success = false;
+
+                    while (attempts < 500 && !success) {
+                        attempts++;
+                        const rotation = Math.floor(Math.random() * 4);
+                        const shape = getRotatedShape(typeId, rotation);
+                        const hx = Math.floor(Math.random() * BOARD_SIZE);
+                        const hy = Math.floor(Math.random() * BOARD_SIZE);
+
+                        let validPlacement = true;
+                        const planeBlocks = [];
+
+                        for (const block of shape) {
+                            const targetX = hx + block.dx;
+                            const targetY = hy + block.dy;
+
+                            if (targetX < 0 || targetX >= BOARD_SIZE || targetY < 0 || targetY >= BOARD_SIZE) {
+                                validPlacement = false; break;
+                            }
+                            if (tempBoard[targetY][targetX].hasAirplane) {
+                                validPlacement = false; break;
+                            }
+
+                            if (!allowAdjacent) {
+                                for (let dx = -1; dx <= 1; dx++) {
+                                    for (let dy = -1; dy <= 1; dy++) {
+                                        const nx = targetX + dx;
+                                        const ny = targetY + dy;
+                                        if (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE) {
+                                            if (tempBoard[ny][nx].hasAirplane) {
+                                                validPlacement = false; break;
+                                            }
+                                        }
+                                    }
+                                    if (!validPlacement) break;
+                                }
+                            }
+
+                            if (!validPlacement) break;
+                            planeBlocks.push({ x: targetX, y: targetY, isHead: block.isHead });
+                        }
+
+                        if (validPlacement) {
+                            planeBlocks.forEach(b => {
+                                tempBoard[b.y][b.x].hasAirplane = true;
+                                tempBoard[b.y][b.x].isHead = b.isHead;
+                                tempBoard[b.y][b.x].planeId = i + 1;
+                            });
+                            placed.push({ id: i + 1, typeId: typeId, blocks: planeBlocks });
+                            success = true;
+                        }
+                    }
+
+                    if (!success) { allPlaced = false; break; }
+                }
+
+                if (allPlaced && placed.length === planeTypes.length) {
+                    myBoardState = tempBoard;
+                    return placed;
+                }
+            }
+            return [];
+        }
+
+        // Initialize Boards DOM
+        function renderBoardDOMs() {
+            const myBoardEl = document.getElementById('myGameBoard');
+            const oppBoardEl = document.getElementById('oppGameBoard');
+            myBoardEl.innerHTML = '';
+            oppBoardEl.innerHTML = '';
+
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const myCell = document.createElement('button');
+                    myCell.id = `my-cell-${r}-${c}`;
+                    myCell.className = `grid-cell bg-slate-400 dark:bg-slate-600 border border-slate-500/30 dark:border-slate-700/60 rounded-lg flex items-center justify-center font-bold text-white shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400`;
+                    myCell.addEventListener('click', () => handleMyCellClick(r, c));
+                    myBoardEl.appendChild(myCell);
+
+                    const oppCell = document.createElement('div');
+                    oppCell.id = `opp-cell-${r}-${c}`;
+                    oppCell.className = `grid-cell bg-slate-300 dark:bg-slate-700/80 border border-slate-400/20 dark:border-slate-700/40 rounded-lg flex items-center justify-center font-bold text-white shadow-sm`;
+                    oppBoardEl.appendChild(oppCell);
+                }
+            }
+        }
+
+        // Receive Opponent Move
+        function handleOpponentMoveData(data) {
+            oppClickCount = data.clickCount;
+            oppHeadsFound = data.headsFound;
+            document.getElementById('oppClickCount').textContent = oppClickCount;
+            document.getElementById('oppHeadsFound').textContent = oppHeadsFound;
+
+            const oppCellEl = document.getElementById(`opp-cell-${data.row}-${data.col}`);
+            if (oppCellEl) {
+                oppCellEl.classList.add('animate-pop');
+                if (data.hitType === 'head') {
+                    oppCellEl.className = `grid-cell bg-red-500 border border-red-600 rounded-lg flex items-center justify-center text-white shadow-md`;
+                    oppCellEl.innerHTML = `<i class="fa-solid fa-crosshairs text-xs"></i>`;
+                    updatePlaneStatusUI('opp', data.planeId, true);
+                } else if (data.hitType === 'hit') {
+                    oppCellEl.className = `grid-cell bg-blue-500 border border-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm`;
+                    oppCellEl.innerHTML = `<i class="fa-solid fa-circle text-[6px]"></i>`;
+                } else {
+                    oppCellEl.className = `grid-cell bg-white dark:bg-slate-200 border border-slate-300 rounded-lg flex items-center justify-center text-slate-400 shadow-inner`;
+                    oppCellEl.innerHTML = `<i class="fa-solid fa-xmark text-xs opacity-50"></i>`;
+                }
+            }
+
+            if (!isMatchEnded) {
+                advanceTurnAfterMove();
+            }
+        }
+
+        function evaluateTurnProgress() {
+            if (isFirstPlayer) {
+                if (myHeadsFound === myTotalHeadsGoal && p1FoundAllTurn === -1) {
+                    p1FoundAllTurn = currentRound;
+                    showToast("你率先找齐机头！等待后手完成补一步...");
+                }
+                isMyTurn = false;
+                updateTurnUI();
+            } else {
+                if (p1FoundAllTurn === currentRound) {
+                    checkMatchEndSettlement();
+                } else if (myHeadsFound === myTotalHeadsGoal) {
+                    checkMatchEndSettlement();
+                } else {
+                    currentRound++;
+                    isMyTurn = false;
+                    updateTurnUI();
+                }
+            }
+        }
+
+        function advanceTurnAfterMove() {
+            if (isFirstPlayer) {
+                if (oppHeadsFound === oppTotalHeadsGoal || p1FoundAllTurn === currentRound) {
+                    checkMatchEndSettlement();
+                } else {
+                    currentRound++;
+                    isMyTurn = true;
+                    updateTurnUI();
+                }
+            } else {
+                if (oppHeadsFound === oppTotalHeadsGoal && p1FoundAllTurn === -1) {
+                    p1FoundAllTurn = currentRound;
+                    showToast("先手已找齐机头！轮到你进行本轮补一步！");
+                }
+                isMyTurn = true;
+                updateTurnUI();
+            }
+        }
+
+        function checkMatchEndSettlement() {
+            isMatchEnded = true;
+            isMyTurn = false;
+            updateTurnUI();
+
+            const myWon = myHeadsFound === myTotalHeadsGoal;
+            const oppWon = oppHeadsFound === oppTotalHeadsGoal;
+
+            let title = "", desc = "", iconClass = "", iconBg = "", sound = "";
+
+            if (myWon && oppWon) {
+                title = "握手言和 (平局)";
+                desc = `双方在第 ${currentRound} 轮均成功找齐了所有机头！`;
+                iconClass = "fa-handshake text-amber-500";
+                iconBg = "bg-amber-500/20 border-amber-500/40";
+                sound = 'win';
+            } else if (myWon && !oppWon) {
+                title = "大获全胜！";
+                desc = `你率先找齐了全部机头，成功击败对手！`;
+                iconClass = "fa-trophy text-emerald-500";
+                iconBg = "bg-emerald-500/20 border-emerald-500/40";
+                sound = 'win';
+            } else {
+                title = "遗憾败北";
+                desc = `对方率先找齐了全部机头。你可点击下方继续探索！`;
+                iconClass = "fa-skull-crossbones text-rose-500";
+                iconBg = "bg-rose-500/20 border-rose-500/40";
+                sound = 'lose';
+            }
+
+            playSound(sound);
+
+            document.getElementById('resultTitle').textContent = title;
+            document.getElementById('resultDesc').textContent = desc;
+            document.getElementById('resultIcon').className = `fa-solid ${iconClass}`;
+            document.getElementById('resultIconBox').className = `w-16 h-16 border text-3xl rounded-full flex items-center justify-center mx-auto mb-3 animate-bounce-short ${iconBg}`;
+            document.getElementById('resMyClicks').textContent = myClickCount;
+            document.getElementById('resOppClicks').textContent = oppClickCount;
+
+            setTimeout(() => {
+                document.getElementById('resultModal').classList.remove('hidden');
+            }, 500);
+        }
+
+        function enableFreeSearchMode() {
+            isFreeSearching = true;
+            document.getElementById('resultModal').classList.add('hidden');
+            document.getElementById('freeSearchBanner').classList.remove('hidden');
+            showToast("已开启自由探索模式，可随时点击底部按钮再来一局或切换模式");
+        }
+
+        function updateTurnUI() {
+            const banner = document.getElementById('turnBanner');
+            const turnCounterText = document.getElementById('turnCounterText');
+            const badge = document.getElementById('turnIndicatorBadge');
+            const icon = document.getElementById('turnIcon');
+            const statusText = document.getElementById('turnStatusText');
+
+            banner.classList.remove('hidden');
+            turnCounterText.textContent = `第 ${currentRound} 轮`;
+
+            if (isMatchEnded) {
+                badge.className = "flex items-center gap-1.5 px-3 py-1 rounded-xl font-bold text-xs bg-slate-500/10 text-slate-500 border border-slate-500/20";
+                icon.className = "fa-solid fa-flag-checkered";
+                statusText.textContent = "比赛已结算";
+            } else if (isMyTurn) {
+                badge.className = "flex items-center gap-1.5 px-3 py-1 rounded-xl font-bold text-xs bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 animate-pulse-fast";
+                icon.className = "fa-solid fa-play";
+                statusText.textContent = "你的回合";
+            } else {
+                badge.className = "flex items-center gap-1.5 px-3 py-1 rounded-xl font-bold text-xs bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30";
+                icon.className = "fa-solid fa-spinner animate-spin";
+                statusText.textContent = "对方思考中...";
+            }
+        }
+
+        function updatePlaneStatusUI(owner, planeId, destroyed = false) {
+            const targetEl = document.getElementById(`${owner}StatusPlane${planeId}`);
+            const targetIcon = document.getElementById(`${owner}PlaneIcon${planeId}`);
+
+            if (targetEl) {
+                if (destroyed) {
+                    targetEl.textContent = '已击毁';
+                    targetEl.className = 'font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded text-[10px]';
+                } else {
+                    targetEl.textContent = '潜伏中';
+                    targetEl.className = 'font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded text-[10px]';
+                }
+            }
+            if (targetIcon && destroyed) {
+                targetIcon.className = 'fa-solid fa-plane text-red-500';
+            }
+        }
+
+        function renderPlanesStatusContainers(planes) {
+            const myContainer = document.getElementById('myPlanesStatus');
+            const oppContainer = document.getElementById('oppPlanesStatus');
+            myContainer.innerHTML = '';
+            oppContainer.innerHTML = '';
+
+            planes.forEach((typeId, idx) => {
+                const planeId = idx + 1;
+                const myRow = document.createElement('div');
+                myRow.className = 'flex items-center justify-between p-2 bg-slate-100 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700/50';
+                myRow.innerHTML = `
+                    <span class="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                        <i id="myPlaneIcon${planeId}" class="fa-solid fa-plane text-slate-400"></i>
+                        ${planeId}号 (${typeId}号机)
+                    </span>
+                    <span id="myStatusPlane${planeId}" class="font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded text-[10px]">潜伏中</span>
+                `;
+                myContainer.appendChild(myRow);
+
+                const oppRow = document.createElement('div');
+                oppRow.className = 'flex items-center justify-between p-2 bg-slate-100 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700/50';
+                oppRow.innerHTML = `
+                    <span class="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                        <i id="oppPlaneIcon${planeId}" class="fa-solid fa-plane text-slate-400"></i>
+                        ${planeId}号 (${typeId}号机)
+                    </span>
+                    <span id="oppStatusPlane${planeId}" class="font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded text-[10px]">潜伏中</span>
+                `;
+                oppContainer.appendChild(oppRow);
+            });
+        }
+
+        function startNewMatch(mode, firstPlayerState) {
+            currentMode = mode;
+            isFirstPlayer = firstPlayerState;
+            isMyTurn = isFirstPlayer;
+            currentRound = 1;
+            p1FoundAllTurn = -1;
+            isMatchEnded = false;
+            isFreeSearching = false;
+
+            myClickCount = 0;
+            myHeadsFound = 0;
+            oppClickCount = 0;
+            oppHeadsFound = 0;
+
+            const modeConfig = GAME_MODES[currentMode];
+            myTotalHeadsGoal = modeConfig.planes.length;
+            oppTotalHeadsGoal = modeConfig.planes.length;
+
+            document.getElementById('myClickCount').textContent = '0';
+            document.getElementById('myHeadsFound').textContent = '0';
+            document.getElementById('myTotalGoalText').textContent = `/${myTotalHeadsGoal}`;
+
+            document.getElementById('oppClickCount').textContent = '0';
+            document.getElementById('oppHeadsFound').textContent = '0';
+            document.getElementById('oppTotalGoalText').textContent = `/${oppTotalHeadsGoal}`;
+
+            document.getElementById('currentModeDesc').textContent = modeConfig.desc;
+            document.getElementById('freeSearchBanner').classList.add('hidden');
+            document.getElementById('resultModal').classList.add('hidden');
+
+            renderPlanesStatusContainers(modeConfig.planes);
+            myAirplanes = generateAirplaneLayout(modeConfig.planes, modeConfig.allowAdjacent);
+            renderBoardDOMs();
+            updateTurnUI();
+
+            showToast(isMyTurn ? "游戏开始！先手回合：" : "游戏开始！后手等待中...");
+        }
+
+        function copyRoomCode() {
+            const code = document.getElementById('createdRoomCode').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                showToast("房间号已复制到剪贴板");
+            }).catch(() => {
+                showToast(`房间号为: ${code}`);
+            });
+        }
+
+        function switchLobbyTab(tab) {
+            const createBtn = document.getElementById('tabCreateBtn');
+            const joinBtn = document.getElementById('tabJoinBtn');
+            const createContent = document.getElementById('tabCreateContent');
+            const joinContent = document.getElementById('tabJoinContent');
+
+            if (tab === 'create') {
+                createBtn.className = "flex-1 py-2 rounded-lg text-xs font-bold transition bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm";
+                joinBtn.className = "flex-1 py-2 rounded-lg text-xs font-bold transition text-slate-500 dark:text-slate-400 hover:text-slate-800";
+                createContent.classList.remove('hidden');
+                joinContent.classList.add('hidden');
+            } else {
+                joinBtn.className = "flex-1 py-2 rounded-lg text-xs font-bold transition bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm";
+                createBtn.className = "flex-1 py-2 rounded-lg text-xs font-bold transition text-slate-500 dark:text-slate-400 hover:text-slate-800";
+                joinContent.classList.remove('hidden');
+                createContent.classList.add('hidden');
+            }
+        }
+
+        function selectHostMode(modeId) {
+            selectedHostMode = modeId;
+            document.querySelectorAll('.mode-select-btn').forEach((btn, idx) => {
+                if (idx + 1 === modeId) {
+                    btn.className = "mode-select-btn p-3 rounded-xl border-2 border-blue-500 bg-blue-500/10 text-left font-bold transition";
+                } else {
+                    btn.className = "mode-select-btn p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-left font-bold transition hover:border-slate-400";
+                }
+            });
+        }
+
+        function initToggleOpponentBtn() {
+            const btn = document.getElementById('toggleOpponentBtn');
+            const icon = document.getElementById('toggleOpponentIcon');
+            const text = document.getElementById('toggleOpponentText');
+            const oppWrapper = document.getElementById('opponentBoardWrapper');
+
+            btn.addEventListener('click', () => {
+                isOpponentHidden = !isOpponentHidden;
+                if (isOpponentHidden) {
+                    oppWrapper.classList.add('hidden');
+                    icon.className = 'fa-solid fa-eye';
+                    text.textContent = '展开对方';
+                } else {
+                    oppWrapper.classList.remove('hidden');
+                    icon.className = 'fa-solid fa-eye-slash';
+                    text.textContent = '隐藏对方';
+                }
+            });
+        }
+
+        function renderSchematicPreviews() {
+            [1, 2, 3].forEach(typeId => {
+                const container = document.getElementById(`previewPlane${typeId}`);
+                if (!container) return;
+                container.innerHTML = '';
+
+                for (let r = 0; r < 5; r++) {
+                    for (let c = 0; c < 5; c++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'aspect-square rounded-[2px] transition-all';
+                        const dx = c - 2;
+                        const dy = r;
+                        const match = PLANE_TYPES[typeId].find(b => b.dx === dx && b.dy === dy);
+
+                        if (match) {
+                            if (match.isHead) {
+                                cell.className += ' bg-red-500 flex items-center justify-center text-[7px] text-white font-bold';
+                                cell.innerHTML = '<i class="fa-solid fa-crosshairs"></i>';
+                            } else {
+                                cell.className += ' bg-blue-500';
+                            }
+                        } else {
+                            cell.className += ' bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-700/30';
+                        }
+                        container.appendChild(cell);
+                    }
+                }
+            });
+        }
+
+        window.onload = () => {
+            initTheme();
+            initToggleOpponentBtn();
+            renderSchematicPreviews();
+
+            document.getElementById('helpBtn').addEventListener('click', () => {
+                document.getElementById('helpModal').classList.remove('hidden');
+            });
+            document.getElementById('closeHelpBtn').addEventListener('click', () => {
+                document.getElementById('helpModal').classList.add('hidden');
+            });
+        };
+    </script>
+</body>
+</html>
