@@ -76,6 +76,11 @@
                 <i class="fa-solid fa-arrow-left"></i> 退出
             </button>
         </div>
+        <!-- 游戏规则按钮 -->
+        <button onclick="openRulesModal()" title="游戏规则" class="flex items-center justify-center px-3 h-10 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 text-xs font-bold rounded-xl transition shadow-sm border border-slate-200 dark:border-slate-700 gap-1.5">
+            <i class="fa-solid fa-circle-question text-pink-500 text-sm"></i>
+            <span class="hidden sm:inline">规则</span>
+        </button>
         <button id="themeToggleBtn" title="切换主题" class="flex items-center justify-center w-10 h-10 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-amber-400 rounded-xl transition shadow-sm border border-slate-200 dark:border-slate-700">
             <i id="themeIcon" class="fa-solid fa-moon text-lg"></i>
         </button>
@@ -213,6 +218,54 @@
                 退出房间
             </button>
         </div>
+    </div>
+</div>
+
+<!-- 游戏规则弹窗 -->
+<div id="rulesModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl max-w-sm w-full p-5 shadow-2xl animate-pop text-slate-800 dark:text-slate-100 relative">
+        <button onclick="closeRulesModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        
+        <div class="flex items-center gap-2 mb-3">
+            <i class="fa-solid fa-book-open text-pink-500 text-xl"></i>
+            <h3 class="text-lg font-black text-slate-800 dark:text-slate-100">游戏规则说明</h3>
+        </div>
+
+        <div class="text-xs text-slate-600 dark:text-slate-300 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            <div class="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                <div class="font-bold text-pink-500 mb-1">🎯 游戏目标</div>
+                <p>地毯用尽时即为游戏结束，拥有最多<b>金币</b>的玩家获胜。<p>
+<p>若金币数相同，则地毯占领总面积更多的玩家获胜。</p>
+            </div>
+
+            <div class="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                <div class="font-bold text-pink-500 mb-1">🎲 回合流程</div>
+                <ol class="list-decimal list-inside space-y-1">
+                    <li><b>选择移动方向</b>：直行、左转、右转，不可向后移动。</li>
+                    <li><b>掷骰子移动</b>：独角兽往前移动对应步数，若到棋盘尽头，将会自动按蛇形环绕转向。</li>
+                    <li><b>支付租金</b>：停下时若停在其他玩家的地毯，需向该玩家支付租金（租金 = 该块同色连通地毯的格子总数）。</li>
+                    <li><b>铺设地毯</b>：在独角兽周围 3x3 范围内选择 2 个相邻格子铺设 1 块 1x2 地毯。</li>
+                </ol>
+            </div>
+
+            <div class="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                <div class="font-bold text-pink-500 mb-1">📐 地毯铺设限制</div>
+                <ul class="list-disc list-inside space-y-1">
+                    <li>必须覆盖 <b>2 个相邻格子</b>。</li>
+                    <li>覆盖两个空白格子</li>
+                    <li>覆盖一格彩色格子和一个空白格子</li>
+                    <li>覆盖两个不同颜色的格子</li>
+                    <li><b>注意：</b>不可覆盖两个同色的格子</li>
+                    <li>若周围 3x3 范围无合法位置可铺，范围会自动扩展至 5x5。</li>
+                </ul>
+            </div>
+        </div>
+
+        <button onclick="closeRulesModal()" class="w-full mt-4 py-2.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold rounded-xl text-xs shadow-md transition active:scale-95">
+            我知道了
+        </button>
     </div>
 </div>
 
@@ -513,6 +566,15 @@ function inspectBoardState() {
     document.getElementById('victoryModal').classList.add('hidden');
     document.getElementById('exit-game-btn').classList.add('hidden');
     document.getElementById('post-game-header-actions').classList.remove('hidden');
+}
+
+// 规则弹窗逻辑
+function openRulesModal() {
+    document.getElementById('rulesModal').classList.remove('hidden');
+}
+
+function closeRulesModal() {
+    document.getElementById('rulesModal').classList.add('hidden');
 }
 
 function toggleAIFill() {
