@@ -3,130 +3,264 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ArkFZの游戏实验室</title>
+    <title>ArkFZの游戏实验室 - 名侦探学院游戏库</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #0f172a;
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #080c19;
             color: #f8fafc;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            overflow-x: hidden;
         }
-        h1 {
-            font-size: 2.2rem;
-            margin-bottom: 8px;
-            background: linear-gradient(135deg, #38bdf8, #818cf8);
+
+        /* 霓虹特效标题 */
+        .neon-title {
+            font-family: 'Noto Sans SC', 'Orbitron', sans-serif;
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 30%, #b820e6 70%, #ff2a85 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(79, 172, 254, 0.4);
         }
-        p.subtitle {
-            color: #94a3b8;
-            margin-bottom: 32px;
-            font-size: 0.95rem;
+
+        /* 背景极光动画 */
+        .bg-glow-1 {
+            position: absolute;
+            top: -10%;
+            left: 20%;
+            width: 450px;
+            height: 450px;
+            background: radial-gradient(circle, rgba(0, 242, 254, 0.18) 0%, rgba(0, 0, 0, 0) 70%);
+            border-radius: 50%;
+            filter: blur(50px);
+            z-index: 0;
+            animation: pulse-glow 8s infinite alternate ease-in-out;
         }
-        .game-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 20px;
-            width: 100%;
-            max-width: 600px;
+
+        .bg-glow-2 {
+            position: absolute;
+            bottom: -5%;
+            right: 15%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(255, 42, 133, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+            border-radius: 50%;
+            filter: blur(60px);
+            z-index: 0;
+            animation: pulse-glow 10s infinite alternate-reverse ease-in-out;
         }
-        .card {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 12px;
-            padding: 20px;
-            text-decoration: none;
-            color: inherit;
-            transition: all 0.25s ease;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+
+        @keyframes pulse-glow {
+            0% { transform: scale(0.9) translate(0, 0); opacity: 0.6; }
+            100% { transform: scale(1.15) translate(20px, 30px); opacity: 1; }
         }
-        .card:hover {
-            transform: translateY(-4px);
-            border-color: #38bdf8;
-            box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.2);
+
+        /* 网格背景线 */
+        .cyber-grid {
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
         }
-        .card h2 {
-            font-size: 1.25rem;
-            margin-bottom: 8px;
-            color: #f1f5f9;
+
+        /* 卡片玻璃拟态与发光边框 */
+        .card-cyber {
+            background: rgba(19, 27, 49, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 242, 254, 0.15);
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
         }
-        .card p {
-            font-size: 0.85rem;
-            color: #94a3b8;
-            line-height: 1.4;
+
+        .card-cyber::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+            transition: 0.6s;
         }
-        .card .btn-text {
-            margin-top: 16px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #38bdf8;
-            display: flex;
-            align-items: center;
-            gap: 4px;
+
+        .card-cyber:hover::before {
+            left: 100%;
+        }
+
+        .card-cyber:hover {
+            transform: translateY(-6px) scale(1.02);
+            border-color: rgba(0, 242, 254, 0.6);
+            box-shadow: 0 12px 30px -5px rgba(0, 242, 254, 0.25),
+                        0 0 15px 0 rgba(184, 32, 230, 0.2);
+        }
+
+        /* 联机版特别高亮样式 */
+        .card-multiplayer {
+            border: 1px solid rgba(255, 42, 133, 0.25);
+        }
+        .card-multiplayer:hover {
+            border-color: rgba(255, 42, 133, 0.7);
+            box-shadow: 0 12px 30px -5px rgba(255, 42, 133, 0.3),
+                        0 0 20px 0 rgba(0, 242, 254, 0.2);
+        }
+
+        /* 侦探剪影 Badge */
+        .badge-online {
+            background: linear-gradient(135deg, #ff2a85, #b820e6);
+        }
+        .badge-solo {
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
         }
     </style>
 </head>
-<body>
+<body class="cyber-grid min-h-screen flex flex-col items-center justify-center p-4 md:p-8 relative">
 
-    <h1>名学游戏库</h1>
-    <p class="subtitle">选择下方任意项目开始体验</p>
+    <!-- 背景漫反射发光圆球 -->
+    <div class="bg-glow-1 pointer-events-none"></div>
+    <div class="bg-glow-2 pointer-events-none"></div>
 
-    <div class="game-grid">
-        <a class="card" href="./dujiaoshou/">
-            <div>
-                <h2>商业独角兽</h2>
-                <p>占领地盘，商业之争</p>
-            </div>
-            <div class="btn-text">开始游戏 &rarr;</div>
-        </a>
-        
-        <a class="card" href="./dujiaoshou2/">
-            <div>
-                <h2>商业独角兽联机版</h2>
-                <p>和朋友们来一场精彩的对决吧</p>
-            </div>
-            <div class="btn-text">开始游戏 &rarr;</div>
-        </a>
+    <main class="w-full max-w-4xl flex flex-col items-center relative z-10">
 
-        <a class="card" href="./xunjitou/">
-            <div>
-                <h2>寻机头</h2>
-                <p>寻找机头，击落敌机</p>
+        <!-- 顶部 Header 区域 -->
+        <header class="text-center mb-10 md:mb-14">
+            <!-- 侦探帽与标志 Icon -->
+            <div class="inline-flex items-center justify-center w-20 h-20 mb-4 rounded-2xl bg-slate-900/80 border border-cyan-500/30 shadow-[0_0_25px_rgba(0,242,254,0.3)]">
+                <i class="fa-solid fa-user-secret text-4xl text-cyan-400"></i>
             </div>
-            <div class="btn-text">开始游戏 &rarr;</div>
-        </a>
-        
-        <a class="card" href="./xunjitou2/">
-            <div>
-                <h2>寻机头联机版</h2>
-                <p>和朋友们来一场精彩的对决吧</p>
-            </div>
-            <div class="btn-text">开始游戏 &rarr;</div>
-        </a>
 
-        <!-- 以后有新游戏时，复制下方这段代码并修改路径和名字即可 -->
-        <!--
-        <a class="card" href="./game2/">
-            <div>
-                <h2>新游戏名称</h2>
-                <p>游戏简短说明</p>
-            </div>
-            <div class="btn-text">开始游戏 &rarr;</div>
-        </a>
-        -->
-    </div>
+            <!-- 主标题 -->
+            <h1 class="text-4xl sm:text-5xl font-black tracking-wider neon-title mb-3">
+                名学游戏实验室
+            </h1>
+
+            <!-- 描述副标题 -->
+            <p class="text-slate-400 text-sm sm:text-base font-medium max-w-md mx-auto flex items-center justify-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                名侦探学院 · 头脑风暴与竞技对决
+            </p>
+        </header>
+
+        <!-- 游戏卡片容器网格 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
+
+            <!-- 1. 商业独角兽 (单机) -->
+            <a href="./dujiaoshou/" class="card-cyber rounded-2xl p-6 flex flex-col justify-between group">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-bold px-2.5 py-1 rounded-md text-white badge-solo flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-user text-[10px]"></i> 单人挑战
+                        </span>
+                        <i class="fa-solid fa-chart-line text-slate-500 group-hover:text-cyan-400 transition-colors duration-300 text-xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-100 group-hover:text-cyan-300 transition-colors duration-200 mb-2 flex items-center gap-2">
+                        商业独角兽
+                    </h2>
+                    <p class="text-slate-400 text-sm leading-relaxed">
+                        策略筹谋，占领地盘。
+                    </p>
+                </div>
+                <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-cyan-400 font-semibold text-sm">
+                    <span>进入游戏</span>
+                    <i class="fa-solid fa-arrow-right transform group-hover:translate-x-1.5 transition-transform duration-200"></i>
+                </div>
+            </a>
+
+            <!-- 2. 商业独角兽 (联机版) -->
+            <a href="./dujiaoshou2/" class="card-cyber card-multiplayer rounded-2xl p-6 flex flex-col justify-between group">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-bold px-2.5 py-1 rounded-md text-white badge-online flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-users text-[10px]"></i> 多人联机
+                        </span>
+                        <i class="fa-solid fa-[#ff2a85] fa-globe text-slate-500 group-hover:text-pink-400 transition-colors duration-300 text-xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-100 group-hover:text-pink-300 transition-colors duration-200 mb-2">
+                        商业独角兽 <span class="text-xs px-2 py-0.5 rounded bg-pink-500/20 text-pink-300 border border-pink-500/30">联机版</span>
+                    </h2>
+                    <p class="text-slate-400 text-sm leading-relaxed">
+                        与学分来一场精彩的博弈吧！
+                    </p>
+                </div>
+                <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-pink-400 font-semibold text-sm">
+                    <span>开始对决</span>
+                    <i class="fa-solid fa-arrow-right transform group-hover:translate-x-1.5 transition-transform duration-200"></i>
+                </div>
+            </a>
+
+            <!-- 3. 寻机头 (单机) -->
+            <a href="./xunjitou/" class="card-cyber rounded-2xl p-6 flex flex-col justify-between group">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-bold px-2.5 py-1 rounded-md text-white badge-solo flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-user text-[10px]"></i> 单人推演
+                        </span>
+                        <i class="fa-solid fa-plane-lock text-slate-500 group-hover:text-cyan-400 transition-colors duration-300 text-xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-100 group-hover:text-cyan-300 transition-colors duration-200 mb-2">
+                        寻机头
+                    </h2>
+                    <p class="text-slate-400 text-sm leading-relaxed">
+                        寻找隐藏机头，一击击落敌机！
+                    </p>
+                </div>
+                <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-cyan-400 font-semibold text-sm">
+                    <span>进入游戏</span>
+                    <i class="fa-solid fa-arrow-right transform group-hover:translate-x-1.5 transition-transform duration-200"></i>
+                </div>
+            </a>
+
+            <!-- 4. 寻机头 (联机版) -->
+            <a href="./xunjitou2/" class="card-cyber card-multiplayer rounded-2xl p-6 flex flex-col justify-between group">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-bold px-2.5 py-1 rounded-md text-white badge-online flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-users text-[10px]"></i> 多人联机
+                        </span>
+                        <i class="fa-solid fa-crosshairs text-slate-500 group-hover:text-pink-400 transition-colors duration-300 text-xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-100 group-hover:text-pink-300 transition-colors duration-200 mb-2">
+                        寻机头 <span class="text-xs px-2 py-0.5 rounded bg-pink-500/20 text-pink-300 border border-pink-500/30">联机版</span>
+                    </h2>
+                    <p class="text-slate-400 text-sm leading-relaxed">
+                        与学分来一场精彩的博弈吧！
+                    </p>
+                </div>
+                <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-pink-400 font-semibold text-sm">
+                    <span>开始对决</span>
+                    <i class="fa-solid fa-arrow-right transform group-hover:translate-x-1.5 transition-transform duration-200"></i>
+                </div>
+            </a>
+
+            <!-- 备用：新游戏模版代码（取消注释即可使用） -->
+            <!--
+            <a href="./game2/" class="card-cyber rounded-2xl p-6 flex flex-col justify-between group">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-bold px-2.5 py-1 rounded-md text-white badge-solo">新项目</span>
+                        <i class="fa-solid fa-gamepad text-slate-500 group-hover:text-cyan-400 text-xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-100 group-hover:text-cyan-300 mb-2">新游戏名称</h2>
+                    <p class="text-slate-400 text-sm leading-relaxed">游戏简短说明</p>
+                </div>
+                <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-cyan-400 font-semibold text-sm">
+                    <span>开始游戏</span>
+                    <i class="fa-solid fa-arrow-right transform group-hover:translate-x-1.5"></i>
+                </div>
+            </a>
+            -->
+
+        </div>
+
+        <!-- 页脚信息 -->
+        <footer class="mt-16 text-center text-xs text-slate-500">
+            <p>ArkFZ Game Lab &copy; 侦探学院脑力测试平台</p>
+        </footer>
+
+    </main>
 
 </body>
 </html>
