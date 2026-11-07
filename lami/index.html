@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>三人拉蜜</title>
+    <title>爱拼才会赢</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome 图标库 -->
@@ -45,7 +45,7 @@
             transition: background-color 0.3s ease, color 0.3s ease;
         }
 
-        /* 迷你卡牌样式 */
+        /* 牌桌卡牌样式（保持原样小尺寸） */
         .rummi-card {
             width: 28px;
             height: 40px;
@@ -66,8 +66,12 @@
             user-select: none;
         }
 
-        .rummi-card:active {
-            cursor: grabbing;
+        /* 手牌专用加大样式 */
+        .hand-card {
+            width: 42px !important;
+            height: 60px !important;
+            font-size: 1.25rem !important;
+            border-radius: 7px !important;
         }
 
         @media (min-width: 640px) {
@@ -77,6 +81,16 @@
                 font-size: 0.95rem;
                 border-radius: 6px;
             }
+            .hand-card {
+                width: 48px !important;
+                height: 68px !important;
+                font-size: 1.4rem !important;
+                border-radius: 8px !important;
+            }
+        }
+
+        .rummi-card:active {
+            cursor: grabbing;
         }
 
         .dark .rummi-card {
@@ -97,13 +111,13 @@
         .card-yellow { color: #f59e0b; }
         
         .rummi-card.selected {
-            transform: translateY(-4px) scale(1.05);
+            transform: translateY(-6px) scale(1.08);
             border-color: #3b82f6 !important;
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
         }
         .dark .rummi-card.selected {
             border-color: #38bdf8 !important;
-            box-shadow: 0 0 12px rgba(56, 189, 248, 0.7);
+            box-shadow: 0 0 14px rgba(56, 189, 248, 0.85);
         }
 
         .rummi-card.joker {
@@ -112,43 +126,37 @@
             border-color: #f472b6 !important;
         }
 
+        /* 牌组取消灰色边框，仅保留间距与背景 */
         .card-group {
             border-radius: 10px;
             padding: 4px;
             display: flex;
-            gap: 2px;
+            gap: 3px;
             align-items: center;
-            min-height: 48px;
-            min-width: 48px;
+            min-height: 52px;
+            min-width: 52px;
             transition: all 0.2s ease;
             position: relative;
+            border: 1.5px solid transparent;
         }
         .dark .card-group {
-            background: rgba(15, 23, 42, 0.6);
-            border: 1.5px dashed rgba(51, 65, 85, 0.8);
+            background: rgba(15, 23, 42, 0.4);
         }
         html:not(.dark) .card-group {
-            background: rgba(241, 245, 249, 0.9);
-            border: 1.5px dashed rgba(203, 213, 225, 0.9);
+            background: rgba(241, 245, 249, 0.6);
         }
 
+        /* 拖拽吸附高亮 */
         .card-group.drop-target {
             border-color: #3b82f6 !important;
             background: rgba(59, 130, 246, 0.15) !important;
+            transform: scale(1.02);
         }
 
+        /* 错误提示框仍旧保留 */
         .card-group.invalid-group {
             border-color: #ef4444 !important;
-            background: rgba(239, 68, 68, 0.08) !important;
-        }
-
-        .drop-insert-indicator {
-            width: 3px;
-            height: 36px;
-            background-color: #3b82f6;
-            border-radius: 2px;
-            box-shadow: 0 0 8px #3b82f6;
-            pointer-events: none;
+            background: rgba(239, 68, 68, 0.12) !important;
         }
 
         @keyframes turnPulse {
@@ -162,12 +170,13 @@
         .hand-flex-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 5px;
+            gap: 6px;
             align-items: center;
             justify-content: flex-start;
-            max-height: 120px;
+            min-height: 80px;
+            max-height: 180px;
             overflow-y: auto;
-            padding: 2px;
+            padding: 4px;
         }
 
         ::-webkit-scrollbar {
@@ -190,7 +199,7 @@
             </div>
             <div>
                 <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">
-                    三人拉蜜
+                    爱拼才会赢
                 </h1>
                 <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">经典数字卡牌</p>
             </div>
@@ -276,7 +285,7 @@
 
             <!-- 桌面主组区域 -->
             <div id="unifiedBoard" class="flex-1 p-2 rounded-2xl bg-slate-50/50 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/50 overflow-y-auto min-h-[160px]">
-                <div id="boardGroupsContainer" class="flex flex-wrap gap-2.5 content-start min-h-[140px]"></div>
+                <div id="boardGroupsContainer" class="flex flex-wrap gap-3 content-start min-h-[140px]"></div>
             </div>
         </div>
 
@@ -287,7 +296,6 @@
                 <div class="flex items-center gap-1.5">
                     <span class="font-extrabold text-xs sm:text-sm text-slate-800 dark:text-slate-100 flex items-center gap-1">
                         你的手牌
-                        <span id="yourTurnBanner" class="hidden text-[11px] text-emerald-500 font-black animate-pulse">(轮到你了)</span>
                     </span>
                     <span id="playerIceBadge" class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/20">未破冰(需≥30分)</span>
                 </div>
@@ -306,13 +314,13 @@
                         <i class="fa-solid fa-check"></i> 完成出牌
                     </button>
                     <button onclick="drawCardAction()" class="px-2.5 py-1 rounded-lg bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-400 hover:to-pink-400 text-white font-bold text-[11px] shadow-sm transition active:scale-95">
-                        <i class="fa-solid fa-plus"></i> 不出/摸牌
+                        <i class="fa-solid fa-plus"></i> 摸牌
                     </button>
                 </div>
             </div>
 
-            <!-- 手牌存放区域 -->
-            <div id="playerHand" class="hand-flex-container min-h-[50px] w-full"></div>
+            <!-- 手牌存放区域（内部卡牌采用加大样式 hand-card） -->
+            <div id="playerHand" class="hand-flex-container w-full"></div>
         </div>
 
     </main>
@@ -330,14 +338,14 @@
             <div class="text-xs text-slate-600 dark:text-slate-300 space-y-2.5 leading-relaxed">
                 <div class="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
                     <div class="font-bold text-blue-500 mb-1">🎴 卡牌规则</div>
-                    <p>全场 106 张牌：4 色数字 1-13 各 2 组，及 2 张百搭万能牌。</p>
+                    <p>全场 106 张牌：4 色数字 1-13 各 2 组，及 2 张万能牌。</p>
                 </div>
                 <div class="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
                     <div class="font-bold text-blue-500 mb-1">📐 出牌与拆分</div>
                     <ul class="list-disc list-inside space-y-1">
-                        <li><b>同色顺子：</b> 3张或以上【同颜色】且【数字连续】。支持多张百搭 Joker 置于顺子任意位置。</li>
-                        <li><b>中间抽牌即时断开：</b> 从顺子中间抽走卡牌时，该顺子会瞬间分裂为左右两个独立组！</li>
-                        <li><b>自由精确插入：</b> 把卡牌拖到组内具体卡牌两侧，可精准插入该具体位置（如拖到 1 和 3 之间插成 1,2,3）。</li>
+                        <li><b>同色顺子：</b> 3张或以上【同颜色】且【数字连续】。</li>
+                        <li><b>刻子：</b> 【不同色】但【同数字】的卡牌，最多4张为一组。</li>
+                        <li><b>万能牌：</b> 可代替任何卡牌，且会智能按数字顺序放在中间。</li>
                     </ul>
                 </div>
             </div>
@@ -435,10 +443,12 @@
 
         let tableGroups = []; 
         let selectedHandIndices = new Set();
-        let turn = 0; // 0: 玩家, 1: AI-1, 2: AI-2
+	let turn = 0; // 0: 玩家, 1: AI-1, 2: AI-2
         let isGameOver = false;
+        let hasDrawnThisTurn = false; // 限制一回合只能摸一张牌
 
         let turnSnapshot = null;
+        let initialTableCardsCount = 0; // 记录本轮开始时桌面牌的总张数
         let draggedCard = null;
         let draggedFrom = null;
 
@@ -455,6 +465,7 @@
             ai2HasBrokenIce = false;
             turn = 0;
             turnSnapshot = null;
+	    hasDrawnThisTurn = false;
 
             document.getElementById('topRestartBtn').classList.add('hidden');
             document.getElementById('victoryModal').classList.add('hidden');
@@ -482,7 +493,11 @@
             sortPlayerCards('color');
             saveTurnSnapshot();
             updateUI();
-            setNotice("轮到你了！出牌或自由拖拽卡牌，完成后点击“完成出牌”");
+            setNotice("出牌或自由拖拽卡牌，完成后点击“完成出牌”");
+        }
+
+        function getTotalTableCardsCount(groups) {
+            return groups.reduce((acc, g) => acc + g.length, 0);
         }
 
         function saveTurnSnapshot() {
@@ -490,6 +505,7 @@
                 playerHand: JSON.parse(JSON.stringify(playerHand)),
                 tableGroups: JSON.parse(JSON.stringify(tableGroups))
             };
+            initialTableCardsCount = getTotalTableCardsCount(tableGroups);
         }
 
         function updateUI() {
@@ -503,21 +519,33 @@
                 "text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/20";
 
             document.getElementById('ai1IceBadge').innerText = ai1HasBrokenIce ? "已破冰" : "未破冰";
+            document.getElementById('ai1IceBadge').className = ai1HasBrokenIce ? 
+                "text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20" : 
+                "text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/20";
             document.getElementById('ai2IceBadge').innerText = ai2HasBrokenIce ? "已破冰" : "未破冰";
+            document.getElementById('ai2IceBadge').className = ai2HasBrokenIce ? 
+                "text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20" : 
+                "text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/20";
 
             const isMyTurn = turn === 0 && !isGameOver;
             document.getElementById('yourTurnTag').classList.toggle('hidden', !isMyTurn);
             document.getElementById('yourTurnTag').classList.toggle('flex', isMyTurn);
-            document.getElementById('yourTurnBanner').classList.toggle('hidden', !isMyTurn);
+// 严格控制：没轮到自己时，整个操作按钮面板半透明且不可点击
+            const actionButtonsPanel = document.getElementById('actionButtons');
+            if (!isMyTurn) {
+                actionButtonsPanel.classList.add('pointer-events-none', 'opacity-40');
+            } else {
+                actionButtonsPanel.classList.remove('pointer-events-none', 'opacity-40');
+            }
 
             document.getElementById('ai1StatusBadge').classList.toggle('hidden', turn !== 1);
             document.getElementById('ai2StatusBadge').classList.toggle('hidden', turn !== 2);
 
-            // 手牌渲染与拖拽配置
+            // 手牌渲染与拖拽配置（手牌加大）
             const handContainer = document.getElementById('playerHand');
             handContainer.innerHTML = '';
             playerHand.forEach((card, index) => {
-                const cardEl = createCardDom(card);
+                const cardEl = createCardDom(card, true);
                 if (selectedHandIndices.has(index)) {
                     cardEl.classList.add('selected');
                 }
@@ -530,7 +558,7 @@
                 handContainer.appendChild(cardEl);
             });
 
-            // 手牌区域接收拖放（允许收回当轮打出的牌）
+            // 手牌区域接收拖放（收回本轮打出的牌）
             const handPanel = document.getElementById('playerHandPanel');
             handPanel.ondragover = (e) => { e.preventDefault(); handPanel.classList.add('ring-2', 'ring-blue-400'); };
             handPanel.ondragleave = () => handPanel.classList.remove('ring-2', 'ring-blue-400');
@@ -551,9 +579,6 @@
                     sourceGroup.splice(draggedFrom.cardIndex, 1);
                     if (sourceGroup.length === 0) {
                         tableGroups.splice(draggedFrom.groupIndex, 1);
-                    } else {
-                        // 抽牌后即时裂变断裂的顺子组
-                        splitGroupByWithdrawal(draggedFrom.groupIndex, draggedFrom.cardIndex);
                     }
 
                     draggedCard.isCurrentTurnPlayed = false;
@@ -592,6 +617,7 @@
             tableGroups.forEach((group, gIdx) => {
                 const groupEl = document.createElement('div');
                 const isGroupValid = validateGroup(group).valid;
+                // 去除灰色虚线，仅保留非合法时的红色错误高亮框
                 groupEl.className = `card-group ${(!isGroupValid && isMyTurn) ? 'invalid-group' : ''}`;
                 
                 groupEl.ondragover = (e) => handleDragOver(e, groupEl);
@@ -599,7 +625,7 @@
                 groupEl.ondrop = (e) => handleDrop(e, gIdx);
 
                 group.forEach((card, cIdx) => {
-                    const cardEl = createCardDom(card);
+                    const cardEl = createCardDom(card, false);
                     if (isMyTurn) {
                         cardEl.draggable = true;
                         cardEl.ondragstart = (e) => handleDragStart(e, card, { type: 'table', groupIndex: gIdx, cardIndex: cIdx });
@@ -612,25 +638,7 @@
             });
         }
 
-        // 核心抽牌即时断裂逻辑：玩家从某个同色顺子中间抽走卡牌后，组即刻被撕裂为左右两段
-        function splitGroupByWithdrawal(groupIndex, removedCardIndex) {
-            const group = tableGroups[groupIndex];
-            if (!group) return;
-
-            // 若原本卡牌就在组头部或尾部，抽走后天然是一整块，无需切割裂变
-            if (removedCardIndex === 0 || removedCardIndex >= group.length) {
-                return;
-            }
-
-            const leftPiece = group.slice(0, removedCardIndex);
-            const rightPiece = group.slice(removedCardIndex);
-
-            if (leftPiece.length > 0 && rightPiece.length > 0) {
-                tableGroups.splice(groupIndex, 1, leftPiece, rightPiece);
-            }
-        }
-
-        // 自动将顺子与同号组在桌面上整齐升序排序
+        // 自动将顺子与同号组在桌面上整齐升序排序，万能牌位置精准插入中间
         function autoSortAllTableGroups() {
             tableGroups.forEach(group => {
                 const inferred = inferGroupCardPositions(group);
@@ -646,35 +654,36 @@
             });
         }
 
-        // 增强版：多 Joker 精准位置推演与验证 (如 1, J, 3, J, 5)
+// 终极版：精准识别空隙并让万能牌卡在对应数字中间的推演函数
         function inferGroupCardPositions(group) {
             if (!group || group.length === 0) return { isRun: false, isSet: false, posMap: new Map(), valid: false, sum: 0 };
 
             const posMap = new Map();
             const nonJokers = group.filter(c => !c.isJoker);
 
-            // 1. 全是 Joker 的特殊情况
+            // 1. 全是 Joker 的特殊情况（至少3张）
             if (nonJokers.length === 0) {
+                if (group.length < 3) return { isRun: false, isSet: false, posMap, valid: false, sum: 0 };
                 group.forEach((c, idx) => posMap.set(c, 10 + idx));
-                return { isRun: true, isSet: false, posMap, valid: group.length >= 3, sum: group.length * 10 };
+                return { isRun: true, isSet: false, posMap, valid: true, sum: group.length * 10 };
             }
 
-            // 2. 验证同号异色组 (Set)
+            // 2. 验证同号异色组 (Set: 3-4张不同色同数字)
             const firstVal = nonJokers[0].value;
-            const isSetCandidate = nonJokers.every(c => c.value === firstVal) && group.length <= 4;
+            const isSetCandidate = nonJokers.every(c => c.value === firstVal) && group.length >= 3 && group.length <= 4;
             if (isSetCandidate) {
                 const colors = new Set(nonJokers.map(c => c.color));
                 if (colors.size === nonJokers.length) {
                     group.forEach((c, idx) => posMap.set(c, firstVal));
-                    return { isRun: false, isSet: true, posMap, valid: group.length >= 3, sum: firstVal * group.length };
+                    return { isRun: false, isSet: true, posMap, valid: true, sum: firstVal * group.length };
                 }
             }
 
-            // 3. 验证同色顺子组 (Run)，包含多 Joker 位置精确定位
+            // 3. 验证同色顺子组 (Run: 3张以上同色连续数字)
             const sameColorCandidate = nonJokers[0].color;
             const isSameColorCandidate = nonJokers.every(c => c.color === sameColorCandidate);
 
-            if (isSameColorCandidate) {
+            if (isSameColorCandidate && group.length >= 3) {
                 const sortedNonJokers = [...nonJokers].sort((a, b) => a.value - b.value);
                 
                 // 检查非 Joker 牌中是否有重复值
@@ -685,62 +694,70 @@
 
                 if (!hasDuplicate) {
                     let jokers = group.filter(c => c.isJoker);
-                    let minVal = sortedNonJokers[0].value;
-                    let maxVal = sortedNonJokers[sortedNonJokers.length - 1].value;
+                    
+                    // 【核心修复】：以第一张非Joker为基准，推导整个顺子的绝对起始值
+                    // 顺子中每张牌的期望值应该为：sortedNonJokers[0].value + offset
+                    // 我们反向推导：如果中间有空隙，Joker 应该占据哪个具体数值
+                    
+                    // 收集所有需要的数字槽位
+                    let minNonJoker = sortedNonJokers[0].value;
+                    let maxNonJoker = sortedNonJokers[sortedNonJokers.length - 1].value;
+                    
+                    // 尝试所有可能的顺子起点 (startVal)
+                    let foundValid = false;
+                    let bestStartVal = 0;
+                    let bestSum = 0;
+                    let bestPosMap = new Map();
 
-                    // 检查内部间距是否被有限的 Joker 填满
-                    let requiredJokersInside = 0;
-                    for (let i = 0; i < sortedNonJokers.length - 1; i++) {
-                        requiredJokersInside += (sortedNonJokers[i+1].value - sortedNonJokers[i].value - 1);
-                    }
+                    // 顺子长度等于 group.length
+                    const totalLen = group.length;
+                    
+                    // 起点可以从 minNonJoker 往前推，最多推到 minNonJoker 包含所有 Joker 的距离
+                    for (let start = Math.max(1, minNonJoker - jokers.length); start <= minNonJoker; start++) {
+                        let end = start + totalLen - 1;
+                        if (end > 13 || end < maxNonJoker) continue; // 必须包含所有非Joker牌且不超过13
 
-                    if (requiredJokersInside <= jokers.length) {
-                        let remainingJokers = jokers.length - requiredJokersInside;
-                        
-                        // 寻找起止点 (尽可能在 1-13 合法范围内布局)
-                        let startVal = minVal;
-                        for (let i = 0; i < sortedNonJokers.length - 1; i++) {
-                            startVal -= (sortedNonJokers[i+1].value - sortedNonJokers[i].value - 1);
-                        }
-                        
-                        // 将剩余的 Joker 分配给前头或尾部
-                        while (remainingJokers > 0 && startVal > 1) {
-                            startVal--;
-                            remainingJokers--;
-                        }
-                        startVal = Math.max(1, startVal);
+                        // 验证这个范围 [start, end] 是否正好能容纳所有非Joker和Joker
+                        let tempMap = new Map();
+                        let availableJokers = [...jokers];
+                        let isValidRange = true;
+                        let currentSum = 0;
 
-                        let endVal = startVal + group.length - 1;
-                        if (endVal <= 13) {
-                            // 分配实际推演数值与位置索引
-                            let currentVal = startVal;
-                            let jokerIdx = 0;
-                            let sum = 0;
-
-                            for (let v = startVal; v <= endVal; v++) {
-                                sum += v;
-                                let realCard = sortedNonJokers.find(c => c.value === v);
-                                if (realCard) {
-                                    posMap.set(realCard, v);
+                        for (let v = start; v <= end; v++) {
+                            currentSum += v;
+                            let matchingNonJoker = sortedNonJokers.find(nj => nj.value === v);
+                            if (matchingNonJoker) {
+                                tempMap.set(matchingNonJoker, v);
+                            } else {
+                                if (availableJokers.length > 0) {
+                                    let jCard = availableJokers.shift();
+                                    tempMap.set(jCard, v); // 完美将 Joker 映射到中间空缺的数值 v 上！
                                 } else {
-                                    if (jokerIdx < jokers.length) {
-                                        posMap.set(jokers[jokerIdx], v);
-                                        jokerIdx++;
-                                    }
+                                    isValidRange = false;
+                                    break;
                                 }
                             }
-
-                            return { isRun: true, isSet: false, posMap, valid: group.length >= 3, sum: sum };
                         }
+
+                        if (isValidRange && availableJokers.length === 0) {
+                            foundValid = true;
+                            bestStartVal = start;
+                            bestSum = currentSum;
+                            bestPosMap = tempMap;
+                            break;
+                        }
+                    }
+
+                    if (foundValid) {
+                        return { isRun: true, isSet: false, posMap: bestPosMap, valid: true, sum: bestSum };
                     }
                 }
             }
 
-            // 默认兜底
-            group.forEach((c, idx) => posMap.set(c, c.value || (10 + idx)));
+            // 无效组合
+            group.forEach((c, idx) => posMap.set(c, c.value || 0));
             return { isRun: false, isSet: false, posMap, valid: false, sum: 0 };
         }
-
         function removeFromSource(fromInfo) {
             if (fromInfo.type === 'hand') {
                 playerHand.splice(fromInfo.cardIndex, 1);
@@ -750,9 +767,6 @@
                 sourceGroup.splice(fromInfo.cardIndex, 1);
                 if (sourceGroup.length === 0) {
                     tableGroups.splice(fromInfo.groupIndex, 1);
-                } else {
-                    // 中间抽牌即时分裂
-                    splitGroupByWithdrawal(fromInfo.groupIndex, fromInfo.cardIndex);
                 }
             }
         }
@@ -778,7 +792,7 @@
             groupEl.classList.remove('drop-target');
         }
 
-        // 精确定位与自由插入：卡牌可插入到目标组的任意指定索引位置
+        // 精确定位与吸附：将卡牌插入到目标组的任意指定位置
         function handleDrop(e, targetGroupIdx) {
             e.preventDefault();
             e.stopPropagation();
@@ -788,14 +802,13 @@
                 draggedCard.isCurrentTurnPlayed = true;
             }
 
-            // 计算卡牌拖放落点位于目标卡牌组内的具体插入索引
             let insertIndex = -1;
             if (targetGroupIdx !== -1) {
                 const groupEl = e.currentTarget;
                 const cardNodes = Array.from(groupEl.querySelectorAll('.rummi-card'));
                 const mouseX = e.clientX;
 
-                insertIndex = cardNodes.length; // 默认插入尾部
+                insertIndex = cardNodes.length;
                 for (let i = 0; i < cardNodes.length; i++) {
                     const rect = cardNodes[i].getBoundingClientRect();
                     const midX = rect.left + rect.width / 2;
@@ -825,11 +838,11 @@
             updateUI();
         }
 
-        function createCardDom(card) {
+        function createCardDom(card, isHand = false) {
             const el = document.createElement('div');
-            el.className = `rummi-card ${card.isJoker ? 'joker' : 'card-' + card.color}`;
+            el.className = `rummi-card ${isHand ? 'hand-card' : ''} ${card.isJoker ? 'joker' : 'card-' + card.color}`;
             if (card.isJoker) {
-                el.innerHTML = `<i class="fa-solid fa-crown text-[8px] mb-0.5"></i><span class="text-[8px]">百搭</span>`;
+                el.innerHTML = `<i class="fa-solid fa-crown ${isHand ? 'text-[10px]' : 'text-[8px]'} mb-0.5"></i><span class="${isHand ? 'text-[10px]' : 'text-[8px]'}">万能</span>`;
             } else {
                 el.innerHTML = `<span>${card.value}</span>`;
             }
@@ -892,14 +905,15 @@
 
             tableGroups = tableGroups.filter(g => g.length > 0);
 
-            const playedCardCount = turnSnapshot.playerHand.length - playerHand.length;
-            const isTableChanged = JSON.stringify(turnSnapshot.tableGroups) !== JSON.stringify(tableGroups);
+            const currentTableCount = getTotalTableCardsCount(tableGroups);
 
-            if (playedCardCount === 0 && !isTableChanged) {
-                setNotice("本回合未进行任何出牌或重组！如需摸牌请点击“不出/摸牌”");
+            // 条件判断：如果一轮中牌桌上的卡牌数量没有增加（牌桌总张数 <= 轮次开始前张数），禁止结束并要求摸牌
+            if (currentTableCount <= initialTableCardsCount) {
+                setNotice("❌ 本轮未增加任何卡牌，请打出卡牌或摸牌。");
                 return;
             }
 
+            // 检查桌面所有组是否合法
             let allValid = true;
             let invalidReason = "";
             for (let g of tableGroups) {
@@ -921,15 +935,19 @@
                 return;
             }
 
+            // 破冰条件严格校验：未破冰时必须打出 ≥ 30 分的卡牌组合
             if (!playerHasBrokenIce) {
-                let currentTurnPoints = 0;
+                let newlyPlayedPoints = 0;
                 tableGroups.forEach(g => {
-                    const res = validateGroup(g);
-                    currentTurnPoints += res.sum;
+                    const hasTurnCard = g.some(c => c.isCurrentTurnPlayed);
+                    if (hasTurnCard) {
+                        const res = validateGroup(g);
+                        newlyPlayedPoints += res.sum;
+                    }
                 });
 
-                if (currentTurnPoints < 30) {
-                    setNotice(`❌ 破冰失败：桌上组合总分值为 ${currentTurnPoints} 分，首次需 ≥ 30 分！`);
+                if (newlyPlayedPoints < 30) {
+                    setNotice(`❌ 破冰失败：本轮牌组仅为 ${newlyPlayedPoints} 分，不足 30 分！`);
                     return;
                 }
                 playerHasBrokenIce = true;
@@ -946,8 +964,15 @@
             endTurn();
         }
 
-        function drawCardAction() {
+function drawCardAction() {
             if (turn !== 0 || isGameOver) return;
+            
+            // 严格限制一回合只能摸一张牌，多点也没用
+            if (hasDrawnThisTurn) {
+                setNotice("❌ 本回合您已经摸过一张牌了！");
+                return;
+            }
+            hasDrawnThisTurn = true;
 
             if (turnSnapshot && (playerHand.length !== turnSnapshot.playerHand.length || JSON.stringify(tableGroups) !== JSON.stringify(turnSnapshot.tableGroups))) {
                 playerHand = JSON.parse(JSON.stringify(turnSnapshot.playerHand));
@@ -970,13 +995,13 @@
         }
 
         function endTurn() {
-            if (isGameOver) return;
-            turn = (turn + 1) % 3;
-            updateUI();
-
+    	    if (isGameOver) return;
+    	    turn = (turn + 1) % 3;
+    	    hasDrawnThisTurn = false; // 切换回合时重置摸牌限制
+    	    updateUI();
             if (turn === 0) {
                 saveTurnSnapshot();
-                setNotice("轮到你了！请出牌或摸牌");
+                setNotice("请出牌或摸牌");
             } else if (turn === 1) {
                 setNotice("机器人1 思考中...");
                 setTimeout(() => executeAiTurn(1), 1200);
@@ -1018,7 +1043,7 @@
                             aiHand.splice(hIdx, 1);
                             attached = true;
                             played = true;
-                            setNotice(`${name} 巧妙地将手牌拼接到了桌面上！`);
+                            setNotice(`${name} 将手牌拼接到了桌面上！`);
                             break;
                         }
                     }
@@ -1079,15 +1104,15 @@
             scoreboard.innerHTML = `
                 <div class="flex justify-between items-center py-1">
                     <span><b>玩家</b> (剩余: ${playerHand.length}张)</span>
-                    <span class="font-extrabold text-blue-600 dark:text-blue-400">扣分点: ${pSum}</span>
+                    <span class="font-extrabold text-blue-600 dark:text-blue-400">剩余点数: ${pSum}</span>
                 </div>
                 <div class="flex justify-between items-center py-1 border-t border-slate-200 dark:border-slate-700/60">
                     <span><b>机器人1</b> (剩余: ${ai1Hand.length}张)</span>
-                    <span class="font-extrabold text-indigo-600 dark:text-indigo-400">扣分点: ${ai1Sum}</span>
+                    <span class="font-extrabold text-indigo-600 dark:text-indigo-400">剩余点数: ${ai1Sum}</span>
                 </div>
                 <div class="flex justify-between items-center py-1 border-t border-slate-200 dark:border-slate-700/60">
                     <span><b>机器人2</b> (剩余: ${ai2Hand.length}张)</span>
-                    <span class="font-extrabold text-rose-600 dark:text-rose-400">扣分点: ${ai2Sum}</span>
+                    <span class="font-extrabold text-rose-600 dark:text-rose-400">剩余点数: ${ai2Sum}</span>
                 </div>
             `;
 
