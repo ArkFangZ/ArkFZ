@@ -178,6 +178,16 @@
             overflow-y: auto;
             padding: 4px;
         }
+/* 手机端拖拽时的跟随浮动卡牌 Ghost */
+        #floating-drag-ghost {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%) scale(1.15);
+            opacity: 0.95;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            display: none;
+        }
 
         ::-webkit-scrollbar {
             height: 5px;
@@ -190,6 +200,8 @@
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-between p-2.5 sm:p-4 md:p-5">
+<!-- 手机端拖拽时的跟随浮动卡牌 Ghost -->
+    <div id="floating-drag-ghost" class="rummi-card hand-card"></div>
 
     <!-- Header 顶部标题栏 -->
     <header class="w-full max-w-4xl flex items-center justify-between mb-2 sm:mb-3">
@@ -554,6 +566,7 @@
                 cardEl.draggable = isMyTurn;
                 cardEl.ondragstart = (e) => handleDragStart(e, card, { type: 'hand', cardIndex: index });
                 cardEl.ondragend = handleDragEnd;
+bindTouchDrag(cardEl, card, { type: 'hand', cardIndex: index }); // 👈 加上这一行
 
                 handContainer.appendChild(cardEl);
             });
@@ -631,6 +644,7 @@
                         cardEl.ondragstart = (e) => handleDragStart(e, card, { type: 'table', groupIndex: gIdx, cardIndex: cIdx });
                         cardEl.ondragend = handleDragEnd;
                     }
+bindTouchDrag(cardEl, card, { type: 'table', groupIndex: gIdx, cardIndex: cIdx }); // 👈 加上这一行
                     groupEl.appendChild(cardEl);
                 });
 
@@ -1125,7 +1139,146 @@ function drawCardAction() {
             document.getElementById('actionButtons').classList.add('pointer-events-none', 'opacity-50');
             setNotice("正在查看终局战局盘面");
         }
+// ================= 手机端触摸拖拽 (Touch Drag & Drop) 实现 =================
+        let touchDragState = {
+            active: false,
+            card: null,
+            from: null
+        };
 
+        function bindTouchDrag(cardEl, card, fromInfo) {
+            cardEl.addEventListener('touchstart', (e) => {
+                if (turn !== 0 || isGameOver) return;
+                const touch = e.touches[0];
+                touchDragState.active = true;
+                touchDragState.card = card;
+                touchDragState.from = fromInfo;
+
+                const ghost = document.getElementById('floating-drag-ghost');
+                ghost.className = cardEl.className;
+                ghost.innerHTML = cardEl.innerHTML;
+                ghost.style.display = 'flex';
+                ghost.style.left = touch.clientX + 'px';
+                ghost.style.top = touch.clientY + 'px';
+
+                cardEl.style.opacity = '0.4';
+                e.stopPropagation();
+            }, { passive: true });
+
+            cardEl.addEventListener('touchmove', (e) => {
+                if (!touchDragState.active) return;
+                const touch = e.touches[0];
+                const ghost = document.getElementById('floating-drag-ghost');
+                ghost.style.left = touch.clientX + 'px';
+                ghost.style.top = touch.clientY + 'px';
+
+                const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                document.querySelectorAll('.card-group, #unifiedBoard, #playerHandPanel').forEach(el => el.classList.remove('drop-target', 'ring-2', 'ring-blue-400'));
+                
+                const targetGroup = elemBelow ? elemBelow.closest('.card-group') : null;
+                const targetBoard = elemBelow ? elemBelow.closest('#unifiedBoard') : null;
+                const targetHand = elemBelow ? elemBelow.closest('#playerHandPanel') : null;
+
+                if (targetGroup) targetGroup.classList.add('drop-target');
+                else if (targetBoard) targetBoard.classList.add('drop-target');
+                else if (targetHand) targetHand.classList.add('ring-2', 'ring-blue-400');
+            }, { passive: true });
+
+            cardEl.addEventListener('touchend', (e) => {
+                if (!touchDragState.active) return;
+                touchDragState.active = false;
+                const ghost = document.getElementById('floating-drag-ghost');
+                ghost.style.display = 'none';
+                cardEl.style.opacity = '1';
+
+                const touch = e.changedTouches[0];
+                const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                document.querySelectorAll('.card-group, #unifiedBoard, #playerHandPanel').forEach(el => el.classList.remove('drop-target', 'ring-2', 'ring-blue-400'));
+
+                if (!elemBelow) return;
+
+                const targetHand = elemBelow.closest('#playerHandPanel');
+                const targetGroup = elemBelow.closest('.card-group');
+                const targetBoard = elemBelow.closest('#unifiedBoard');
+
+                draggedCard = touchDragState.card;
+                draggedFrom = touchDragState.from;
+
+                if (targetHand) {
+                    handleDropToHand();
+                } else if (targetGroup) {
+                    const groups = Array.from(document.querySelectorAll('.card-group'));
+                    const gIdx = groups.indexOf(targetGroup);
+                    if (gIdx !== -1) {
+                        const cardNodes = Array.from(targetGroup.querySelectorAll('.rummi-card'));
+                        let insertIndex = cardNodes.length;
+                        for (let i = 0; i < cardNodes.length; i++) {
+                            const rect = cardNodes[i].getBoundingClientRect();
+                            if (touch.clientX < rect.left + rect.width / 2) {
+                                insertIndex = i;
+                                break;
+                            }
+                        }
+                        executeDropToGroup(gIdx, insertIndex);
+                    }
+                } else if (targetBoard) {
+                    handleDropToUnifiedBoard();
+                }
+
+                draggedCard = null;
+                draggedFrom = null;
+            });
+        }
+
+        function handleDropToHand() {
+            if (!draggedCard || turn !== 0 || isGameOver) return;
+            if (draggedFrom && draggedFrom.type === 'table') {
+                if (!draggedCard.isCurrentTurnPlayed) {
+                    setNotice("❌ 不能将战场旧牌（非本轮打出的牌）拉回手牌！");
+                    draggedCard = null;
+                    draggedFrom = null;
+                    return;
+                }
+                const sourceGroup = tableGroups[draggedFrom.groupIndex];
+                sourceGroup.splice(draggedFrom.cardIndex, 1);
+                if (sourceGroup.length === 0) tableGroups.splice(draggedFrom.groupIndex, 1);
+
+                draggedCard.isCurrentTurnPlayed = false;
+                playerHand.push(draggedCard);
+                playSound('select');
+                draggedCard = null;
+                draggedFrom = null;
+                updateUI();
+                setNotice("已将本轮出牌收回到手牌");
+            }
+        }
+
+        function handleDropToUnifiedBoard() {
+            if (!draggedCard || turn !== 0 || isGameOver) return;
+            if (draggedFrom.type === 'hand') draggedCard.isCurrentTurnPlayed = true;
+            removeFromSource(draggedFrom);
+            tableGroups.push([draggedCard]);
+            playSound('play');
+            draggedCard = null;
+            draggedFrom = null;
+            updateUI();
+        }
+
+        function executeDropToGroup(targetGroupIdx, insertIndex) {
+            removeFromSource(draggedFrom);
+            const targetGroup = tableGroups[targetGroupIdx];
+            if (targetGroup) {
+                if (insertIndex >= 0 && insertIndex <= targetGroup.length) {
+                    targetGroup.splice(insertIndex, 0, draggedCard);
+                } else {
+                    targetGroup.push(draggedCard);
+                }
+            }
+            playSound('play');
+            draggedCard = null;
+            draggedFrom = null;
+            updateUI();
+        }
         window.onload = function() {
             initTheme();
             initGame();
