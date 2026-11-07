@@ -616,7 +616,7 @@ bindTouchDrag(cardEl, card, { type: 'hand', cardIndex: index }); // 👈 加上�
                 unifiedBoard.classList.remove('drop-target');
                 if (!draggedCard || turn !== 0 || isGameOver) return;
 
-                if (draggedFrom.type === 'hand') {
+                if (draggedFrom && draggedFrom.type === 'hand') {
                     draggedCard.isCurrentTurnPlayed = true;
                 }
                 removeFromSource(draggedFrom);
@@ -668,8 +668,7 @@ bindTouchDrag(cardEl, card, { type: 'table', groupIndex: gIdx, cardIndex: cIdx }
             });
         }
 
-// 终极版：精准识别空隙并让万能牌卡在对应数字中间的推演函数
-        function inferGroupCardPositions(group) {
+function inferGroupCardPositions(group) {
             if (!group || group.length === 0) return { isRun: false, isSet: false, posMap: new Map(), valid: false, sum: 0 };
 
             const posMap = new Map();
@@ -682,13 +681,16 @@ bindTouchDrag(cardEl, card, { type: 'table', groupIndex: gIdx, cardIndex: cIdx }
                 return { isRun: true, isSet: false, posMap, valid: true, sum: group.length * 10 };
             }
 
-            // 2. 验证同号异色组 (Set: 3-4张不同色同数字)
+            // 2. 验证同号异色组 (Set: 3-4张不同色同数字，如三张10)
             const firstVal = nonJokers[0].value;
             const isSetCandidate = nonJokers.every(c => c.value === firstVal) && group.length >= 3 && group.length <= 4;
             if (isSetCandidate) {
-                const colors = new Set(nonJokers.map(c => c.color));
-                if (colors.size === nonJokers.length) {
+                // 检查非Joker颜色是否重复
+                const colors = nonJokers.map(c => c.color);
+                const uniqueColors = new Set(colors);
+                if (uniqueColors.size === colors.length) {
                     group.forEach((c, idx) => posMap.set(c, firstVal));
+                    // 修复点：确保刻子能正确返回总分（例如三张10就是 30 分）
                     return { isRun: false, isSet: true, posMap, valid: true, sum: firstVal * group.length };
                 }
             }
@@ -700,7 +702,6 @@ bindTouchDrag(cardEl, card, { type: 'table', groupIndex: gIdx, cardIndex: cIdx }
             if (isSameColorCandidate && group.length >= 3) {
                 const sortedNonJokers = [...nonJokers].sort((a, b) => a.value - b.value);
                 
-                // 检查非 Joker 牌中是否有重复值
                 let hasDuplicate = false;
                 for (let i = 0; i < sortedNonJokers.length - 1; i++) {
                     if (sortedNonJokers[i].value === sortedNonJokers[i+1].value) hasDuplicate = true;
@@ -708,30 +709,18 @@ bindTouchDrag(cardEl, card, { type: 'table', groupIndex: gIdx, cardIndex: cIdx }
 
                 if (!hasDuplicate) {
                     let jokers = group.filter(c => c.isJoker);
-                    
-                    // 【核心修复】：以第一张非Joker为基准，推导整个顺子的绝对起始值
-                    // 顺子中每张牌的期望值应该为：sortedNonJokers[0].value + offset
-                    // 我们反向推导：如果中间有空隙，Joker 应该占据哪个具体数值
-                    
-                    // 收集所有需要的数字槽位
                     let minNonJoker = sortedNonJokers[0].value;
                     let maxNonJoker = sortedNonJokers[sortedNonJokers.length - 1].value;
                     
-                    // 尝试所有可能的顺子起点 (startVal)
                     let foundValid = false;
-                    let bestStartVal = 0;
                     let bestSum = 0;
                     let bestPosMap = new Map();
-
-                    // 顺子长度等于 group.length
                     const totalLen = group.length;
                     
-                    // 起点可以从 minNonJoker 往前推，最多推到 minNonJoker 包含所有 Joker 的距离
                     for (let start = Math.max(1, minNonJoker - jokers.length); start <= minNonJoker; start++) {
                         let end = start + totalLen - 1;
-                        if (end > 13 || end < maxNonJoker) continue; // 必须包含所有非Joker牌且不超过13
+                        if (end > 13 || end < maxNonJoker) continue;
 
-                        // 验证这个范围 [start, end] 是否正好能容纳所有非Joker和Joker
                         let tempMap = new Map();
                         let availableJokers = [...jokers];
                         let isValidRange = true;
@@ -745,7 +734,7 @@ bindTouchDrag(cardEl, card, { type: 'table', groupIndex: gIdx, cardIndex: cIdx }
                             } else {
                                 if (availableJokers.length > 0) {
                                     let jCard = availableJokers.shift();
-                                    tempMap.set(jCard, v); // 完美将 Joker 映射到中间空缺的数值 v 上！
+                                    tempMap.set(jCard, v);
                                 } else {
                                     isValidRange = false;
                                     break;
@@ -755,7 +744,6 @@ bindTouchDrag(cardEl, card, { type: 'table', groupIndex: gIdx, cardIndex: cIdx }
 
                         if (isValidRange && availableJokers.length === 0) {
                             foundValid = true;
-                            bestStartVal = start;
                             bestSum = currentSum;
                             bestPosMap = tempMap;
                             break;
@@ -768,19 +756,22 @@ bindTouchDrag(cardEl, card, { type: 'table', groupIndex: gIdx, cardIndex: cIdx }
                 }
             }
 
-            // 无效组合
             group.forEach((c, idx) => posMap.set(c, c.value || 0));
             return { isRun: false, isSet: false, posMap, valid: false, sum: 0 };
         }
-        function removeFromSource(fromInfo) {
+
+function removeFromSource(fromInfo) {
+            if (!fromInfo) return;
             if (fromInfo.type === 'hand') {
                 playerHand.splice(fromInfo.cardIndex, 1);
                 selectedHandIndices.clear();
             } else if (fromInfo.type === 'table') {
                 const sourceGroup = tableGroups[fromInfo.groupIndex];
-                sourceGroup.splice(fromInfo.cardIndex, 1);
-                if (sourceGroup.length === 0) {
-                    tableGroups.splice(fromInfo.groupIndex, 1);
+                if (sourceGroup && sourceGroup[fromInfo.cardIndex]) {
+                    sourceGroup.splice(fromInfo.cardIndex, 1);
+                    if (sourceGroup.length === 0) {
+                        tableGroups.splice(fromInfo.groupIndex, 1);
+                    }
                 }
             }
         }
@@ -812,7 +803,7 @@ bindTouchDrag(cardEl, card, { type: 'table', groupIndex: gIdx, cardIndex: cIdx }
             e.stopPropagation();
             if (!draggedCard || turn !== 0 || isGameOver) return;
 
-            if (draggedFrom.type === 'hand') {
+            if (draggedFrom && draggedFrom.type === 'hand') {
                 draggedCard.isCurrentTurnPlayed = true;
             }
 
@@ -1230,8 +1221,9 @@ function drawCardAction() {
             });
         }
 
-        function handleDropToHand() {
+function handleDropToHand() {
             if (!draggedCard || turn !== 0 || isGameOver) return;
+            
             if (draggedFrom && draggedFrom.type === 'table') {
                 if (!draggedCard.isCurrentTurnPlayed) {
                     setNotice("❌ 不能将战场旧牌（非本轮打出的牌）拉回手牌！");
@@ -1239,10 +1231,16 @@ function drawCardAction() {
                     draggedFrom = null;
                     return;
                 }
-                const sourceGroup = tableGroups[draggedFrom.groupIndex];
-                sourceGroup.splice(draggedFrom.cardIndex, 1);
-                if (sourceGroup.length === 0) tableGroups.splice(draggedFrom.groupIndex, 1);
 
+                const sourceGroup = tableGroups[draggedFrom.groupIndex];
+                if (sourceGroup) {
+                    sourceGroup.splice(draggedFrom.cardIndex, 1);
+                    if (sourceGroup.length === 0) {
+                        tableGroups.splice(draggedFrom.groupIndex, 1);
+                    }
+                }
+
+                // 关键点：拿回手牌，清除“本轮已出”标记
                 draggedCard.isCurrentTurnPlayed = false;
                 playerHand.push(draggedCard);
                 playSound('select');
@@ -1253,9 +1251,14 @@ function drawCardAction() {
             }
         }
 
-        function handleDropToUnifiedBoard() {
+function handleDropToUnifiedBoard() {
             if (!draggedCard || turn !== 0 || isGameOver) return;
-            if (draggedFrom.type === 'hand') draggedCard.isCurrentTurnPlayed = true;
+            
+            // 关键点：只要是从手牌拖出来的，或者重新调整的，都算本轮打出
+            if (draggedFrom && draggedFrom.type === 'hand') {
+                draggedCard.isCurrentTurnPlayed = true;
+            }
+            
             removeFromSource(draggedFrom);
             tableGroups.push([draggedCard]);
             playSound('play');
@@ -1265,6 +1268,13 @@ function drawCardAction() {
         }
 
         function executeDropToGroup(targetGroupIdx, insertIndex) {
+            if (!draggedCard || turn !== 0 || isGameOver) return;
+
+            // 关键点：如果是手牌拖过来的，标记为本轮出牌
+            if (draggedFrom && draggedFrom.type === 'hand') {
+                draggedCard.isCurrentTurnPlayed = true;
+            }
+
             removeFromSource(draggedFrom);
             const targetGroup = tableGroups[targetGroupIdx];
             if (targetGroup) {
