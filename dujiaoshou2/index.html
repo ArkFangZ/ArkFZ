@@ -236,8 +236,8 @@
         <div class="text-xs text-slate-600 dark:text-slate-300 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
             <div class="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
                 <div class="font-bold text-pink-500 mb-1">🎯 游戏目标</div>
-                <p>地毯用尽时即为游戏结束，拥有最多<b>金币</b>的玩家获胜。<p>
-<p>若金币数相同，则地毯占领总面积更多的玩家获胜。</p>
+                <p>地毯用尽时即为游戏结束，拥有最多<b>金币</b>的玩家获胜。</p>
+                <p>若金币数相同，则地毯占领总面积更多的玩家获胜。</p>
             </div>
 
             <div class="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
@@ -344,7 +344,6 @@ function switchView(viewId) {
         document.getElementById(id).classList.add('hidden');
     });
     
-    // 隐藏局后快捷按钮
     document.getElementById('post-game-header-actions').classList.add('hidden');
 
     if (viewId === 'view-game' || viewId === 'view-room-lobby') {
@@ -356,7 +355,6 @@ function switchView(viewId) {
     document.getElementById(viewId).classList.remove('hidden');
 }
 
-// 清理状态并返回主菜单
 function returnToMainMenu() {
     closeMQTT();
     document.getElementById('victoryModal').classList.add('hidden');
@@ -389,13 +387,11 @@ function closeMQTT() {
     }
 }
 
-// === 多人 PVP 模式 (6位数字房间号) ===
 function showCreateRoomView() {
     returnToMainMenu();
     const nickname = document.getElementById('player-nickname').value.trim() || '房主';
     isHost = true;
     myRole = 'p1';
-    // 生成 6 位随机数房间号
     currentRoomCode = Math.floor(100000 + Math.random() * 900000).toString();
     
     roomSlots = {
@@ -440,7 +436,6 @@ function connectMQTTAndJoinLobby(isCreating) {
                 updateLobbyUI();
             } else {
                 sendNetworkMsg('PING_ROOM', {});
-                // 1.5 秒内无响应提示房间不存在
                 setTimeout(() => {
                     if (!roomVerified) {
                         alert('未找到此房间，请检查 6 位房间码！');
@@ -468,9 +463,16 @@ function connectMQTTAndJoinLobby(isCreating) {
     });
 }
 
-function sendNetworkMsg(type, data) {
+function sendNetworkMsg(type, data, senderOverride = null) {
     if (mqttClient && mqttClient.connected) {
-        mqttClient.publish(`unicorn_room_v6digit_${currentRoomCode}`, JSON.stringify({ sender: myRole, senderName: document.getElementById('player-nickname').value, type, data }));
+        const activeSender = senderOverride || myRole;
+        const activeName = senderOverride ? players[senderOverride].name : document.getElementById('player-nickname').value;
+        mqttClient.publish(`unicorn_room_v6digit_${currentRoomCode}`, JSON.stringify({ 
+            sender: activeSender, 
+            senderName: activeName, 
+            type, 
+            data 
+        }));
     }
 }
 
@@ -518,24 +520,36 @@ function handleLobbyNetworkMsg(msg) {
         roomSlots = msg.data.roomSlots;
         updateLobbyUI();
     } else if (msg.type === 'START_GAME') {
+        if (isHost) return; // 房主已在本地初始化，忽略网络回传的消息
         players = msg.data.players;
         roomSlots = msg.data.roomSlots;
         resetGameStateOnly();
         setupGameUI();
     } else if (msg.type === 'PLAY_AGAIN') {
+        if (isHost) return; // 房主已在本地重置，忽略网络回传的消息
         resetGameStateOnly();
         setupGameUI();
-    } else if (msg.type === 'ACTION_ROLL' && msg.sender !== myRole) {
-        document.getElementById('dir-input').value = msg.data.actionChoice;
-        executeTurnWithSteps(msg.data.actionChoice, msg.data.steps);
-    } else if (msg.type === 'ACTION_CARPET' && msg.sender !== myRole) {
-        if (validateAndPlaceCarpet(msg.data.pos1, msg.data.pos2, msg.sender)) {
-            endTurn();
+    
+    } else if (msg.type === 'ACTION_ROLL') {
+        if (msg.sender !== myRole) {
+            if (isHost && roomSlots[msg.sender] && roomSlots[msg.sender].type === 'ai' && gameState !== 'MOVE_SELECT') {
+                return;
+            }
+            document.getElementById('dir-input').value = msg.data.actionChoice;
+            executeTurnWithSteps(msg.data.actionChoice, msg.data.steps);
+        }
+    } else if (msg.type === 'ACTION_CARPET') {
+        if (msg.sender !== myRole) {
+            if (isHost && roomSlots[msg.sender] && roomSlots[msg.sender].type === 'ai' && gameState !== 'CARPET_SELECT') {
+                return;
+            }
+            if (validateAndPlaceCarpet(msg.data.pos1, msg.data.pos2, msg.sender)) {
+                endTurn();
+            }
         }
     }
 }
 
-// === 局后功能：再来一局与查看盘面 ===
 function resetGameStateOnly() {
     boardData = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null).map(() => []));
     unicorn = { x: 3, y: 3, dir: 0 };
@@ -568,7 +582,6 @@ function inspectBoardState() {
     document.getElementById('post-game-header-actions').classList.remove('hidden');
 }
 
-// 规则弹窗逻辑
 function openRulesModal() {
     document.getElementById('rulesModal').classList.remove('hidden');
 }
@@ -635,7 +648,6 @@ function leaveRoom() {
     returnToMainMenu();
 }
 
-// === 游戏逻辑 ===
 function setupGameUI() {
     switchView('view-game');
     document.getElementById('p1-name').innerText = players.p1.name;
@@ -699,7 +711,6 @@ function render() {
   document.getElementById('turn-indicator').innerText = `轮到：${players[currentPlayer].name}`;
 }
 
-// 移动逻辑
 function moveUnicornStep() {
   let vec = DIR_VECTORS[unicorn.dir];
   let nx = unicorn.x + vec.x;
@@ -961,21 +972,20 @@ function aiExecuteCarpet(aiKey) {
     }
   }
 
-  if (validPairs.length > 0) {
+if (validPairs.length > 0) {
     const choice = validPairs[Math.floor(Math.random() * validPairs.length)];
     validateAndPlaceCarpet(choice[0], choice[1], aiKey);
+    
+    // 【新增】如果是房主，把机器人铺地毯的动作广播给其他联机玩家
     if (isHost) {
-      mqttClient.publish(`unicorn_room_v6digit_${currentRoomCode}`, JSON.stringify({ 
-        sender: aiKey, 
-        type: 'ACTION_CARPET', 
-        data: { pos1: choice[0], pos2: choice[1] } 
-      }));
+      sendNetworkMsg('ACTION_CARPET', { pos1: choice[0], pos2: choice[1] }, aiKey);
     }
+    
+    endTurn(); // 确保铺完后切到下一回合
   } else {
     log(`${players[aiKey].name} 无合法位置可铺，跳过`);
+    endTurn();
   }
-
-  endTurn();
 }
 
 function endTurn() {
@@ -1010,7 +1020,8 @@ function checkTurnStart() {
       const actionChoice = choices[Math.floor(Math.random() * choices.length)];
       document.getElementById('dir-input').value = actionChoice;
       const steps = Math.floor(Math.random() * 4) + 1;
-      sendNetworkMsg('ACTION_ROLL', { actionChoice, steps });
+      
+      sendNetworkMsg('ACTION_ROLL', { actionChoice, steps }, currentPlayer); 
       executeTurnWithSteps(actionChoice, steps);
     }, 1000);
   }
