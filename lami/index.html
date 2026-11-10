@@ -21,17 +21,12 @@
                     },
                     animation: {
                         'pop': 'pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
-                        'bounce-short': 'bounceShort 0.5s ease duration-1',
                     },
                     keyframes: {
                         pop: {
                             '0%': { transform: 'scale(0.8)', opacity: '0.5' },
                             '100%': { transform: 'scale(1)', opacity: '1' },
                         },
-                        bounceShort: {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-6px)' }
-                        }
                     }
                 }
             }
@@ -232,6 +227,7 @@
                 <i id="themeIcon" class="fa-solid fa-moon text-base"></i>
             </button>
         </div>
+</div>
     </header>
 
     <!-- 主竞技战场布局 -->
@@ -458,6 +454,12 @@
 	let turn = 0; // 0: 玩家, 1: AI-1, 2: AI-2
         let isGameOver = false;
         let hasDrawnThisTurn = false; // 限制一回合只能摸一张牌
+ // ====== 新增：终局限时冲刺相关变量 ======
+	let isEndgameRush = false;      // 是否进入了终局冲刺
+	let endgameTimer = null;        // 倒计时定时器
+	let endgameTimeLeft = 90;       // 剩余秒数
+	let endgameOrder = [];          // 终局出牌顺序，例如 ["player", "ai1", "ai2"]
+	let endgameCurrentIndex = 0;    // 当前在终局顺序中的第几个人
 
         let turnSnapshot = null;
         let initialTableCardsCount = 0; // 记录本轮开始时桌面牌的总张数
@@ -803,8 +805,12 @@ function removeFromSource(fromInfo) {
             e.stopPropagation();
             if (!draggedCard || turn !== 0 || isGameOver) return;
 
-            if (draggedFrom && draggedFrom.type === 'hand') {
-                draggedCard.isCurrentTurnPlayed = true;
+	if (!playerHasBrokenIce && targetGroupIdx !== -1 && targetGroupIdx < initialTableGroupsCount) {
+                setNotice("❌ 未破冰前，不能将牌加入桌面上原有的牌组中！必须自己独立打出新牌组。");
+                draggedCard = null;
+                draggedFrom = null;
+                updateUI();
+                return;
             }
 
             let insertIndex = -1;
@@ -875,10 +881,7 @@ function removeFromSource(fromInfo) {
             selectedHandIndices.clear();
             updateUI();
         }
-
-        function validateGroup(group) {
-            return inferGroupCardPositions(group);
-        }
+execute
 
         function playSelectedCards() {
             if (turn !== 0 || isGameOver) return;
@@ -961,13 +964,20 @@ function removeFromSource(fromInfo) {
             autoSortAllTableGroups();
             tableGroups.forEach(g => g.forEach(c => c.isCurrentTurnPlayed = false));
 
-            if (playerHand.length === 0) {
-                handleGameOver("玩家");
-                return;
-            }
+if (playerHand.length === 0) {
+    if (endgameTimer) clearInterval(endgameTimer);
+    handleGameOver("玩家 (终局清空手牌)");
+    return;
+}
 
-            endTurn();
-        }
+// 终局冲刺中，玩家出完牌后轮转给顺序中的下一个人
+if (isEndgameRush) {
+    if (endgameTimer) clearInterval(endgameTimer); // 清除当前个人90秒
+    advanceEndgameTurn();                          // 切到下一个
+} else {
+    endTurn();
+}
+}
 
 function drawCardAction() {
             if (turn !== 0 || isGameOver) return;
@@ -977,6 +987,11 @@ function drawCardAction() {
                 setNotice("❌ 本回合您已经摸过一张牌了！");
                 return;
             }
+	if (playerHand.length >= 30) {
+                setNotice("❌ 您的手牌已达到 30 张上限，无法继续摸牌！");
+                return;
+            }
+
             hasDrawnThisTurn = true;
 
             if (turnSnapshot && (playerHand.length !== turnSnapshot.playerHand.length || JSON.stringify(tableGroups) !== JSON.stringify(turnSnapshot.tableGroups))) {
@@ -989,6 +1004,11 @@ function drawCardAction() {
             playSound('draw');
             if (deck.length > 0) {
                 playerHand.push(deck.pop());
+// 关键判定：如果刚好拿走了牌堆里最后一张牌！
+        if (deck.length === 0) {
+            triggerEndgameRush(0); // 0代表玩家拿了最后一张
+            return;
+        }
                 setNotice("你摸了 1 张牌，回合结束");
             } else {
                 setNotice("牌堆已空，跳过本回合");
@@ -1015,6 +1035,7 @@ function drawCardAction() {
                 setTimeout(() => executeAiTurn(2), 1200);
             }
         }
+	
 
         function executeAiTurn(aiId) {
             if (isGameOver) return;
@@ -1063,11 +1084,18 @@ function drawCardAction() {
                     handleGameOver(name);
                     return;
                 }
-            } else {
-                if (deck.length > 0) aiHand.push(deck.pop());
-                playSound('draw');
-                setNotice(`${name} 选择摸牌`);
-            }
+} else {
+    if (deck.length > 0) {
+        aiHand.push(deck.pop());
+        // 关键判定：如果是 AI 拿走了最后一张牌
+        if (deck.length === 0) {
+            triggerEndgameRush(aiId); // aiId 为 1 或 2
+            return;
+        }
+    }
+    playSound('draw');
+    setNotice(`${name} 选择摸牌`);
+}
 
             updateUI();
             
@@ -1108,16 +1136,13 @@ function drawCardAction() {
             const scoreboard = document.getElementById('scoreboard');
             scoreboard.innerHTML = `
                 <div class="flex justify-between items-center py-1">
-                    <span><b>玩家</b> (剩余: ${playerHand.length}张)</span>
-                    <span class="font-extrabold text-blue-600 dark:text-blue-400">剩余点数: ${pSum}</span>
+                    <span><b>玩家    </b> (剩余: ${playerHand.length}张)</span>
                 </div>
                 <div class="flex justify-between items-center py-1 border-t border-slate-200 dark:border-slate-700/60">
                     <span><b>机器人1</b> (剩余: ${ai1Hand.length}张)</span>
-                    <span class="font-extrabold text-indigo-600 dark:text-indigo-400">剩余点数: ${ai1Sum}</span>
                 </div>
                 <div class="flex justify-between items-center py-1 border-t border-slate-200 dark:border-slate-700/60">
                     <span><b>机器人2</b> (剩余: ${ai2Hand.length}张)</span>
-                    <span class="font-extrabold text-rose-600 dark:text-rose-400">剩余点数: ${ai2Sum}</span>
                 </div>
             `;
 
@@ -1225,6 +1250,14 @@ function handleDropToHand() {
             if (!draggedCard || turn !== 0 || isGameOver) return;
             
             if (draggedFrom && draggedFrom.type === 'table') {
+	    if (!playerHasBrokenIce && draggedFrom.groupIndex < initialTableGroupsCount) {
+                    setNotice("❌ 未破冰前，不能从桌面上原有的牌组中拿走牌！");
+                    draggedCard = null;
+                    draggedFrom = null;
+                    updateUI();
+                    return;
+                }
+
                 if (!draggedCard.isCurrentTurnPlayed) {
                     setNotice("❌ 不能将战场旧牌（非本轮打出的牌）拉回手牌！");
                     draggedCard = null;
@@ -1269,7 +1302,13 @@ function handleDropToUnifiedBoard() {
 
         function executeDropToGroup(targetGroupIdx, insertIndex) {
             if (!draggedCard || turn !== 0 || isGameOver) return;
-
+	    if (!playerHasBrokenIce && targetGroupIdx !== -1 && targetGroupIdx < initialTableGroupsCount) {
+                setNotice("❌ 未破冰前，不能将牌加入桌面上原有的牌组中！必须自己独立打出新牌组。");
+                draggedCard = null;
+                draggedFrom = null;
+                updateUI();
+                return;
+	}
             // 关键点：如果是手牌拖过来的，标记为本轮出牌
             if (draggedFrom && draggedFrom.type === 'hand') {
                 draggedCard.isCurrentTurnPlayed = true;
@@ -1293,6 +1332,187 @@ function handleDropToUnifiedBoard() {
             initTheme();
             initGame();
         };
+
+// ====== 新增：终局限时冲刺核心逻辑 ======
+// ====== 修改：每人独立90秒冲刺逻辑 ======
+function triggerEndgameRush(lastTakerId) {
+    if (lastTakerId === 0) {
+        endgameOrder = [1, 2, 0]; // B -> C -> A
+    } else if (lastTakerId === 1) {
+        endgameOrder = [2, 0, 1]; // C -> A -> B
+    } else {
+        endgameOrder = [0, 1, 2]; // A -> B -> C
+    }
+
+    isEndgameRush = true;
+    endgameCurrentIndex = 0;
+
+    let rushBanner = document.getElementById('endgameRushBanner');
+    if (!rushBanner) {
+        rushBanner = document.createElement('div');
+        rushBanner.id = 'endgameRushBanner';
+        rushBanner.className = 'w-full bg-rose-600 text-white font-black text-center py-2 px-4 rounded-xl text-xs sm:text-sm shadow-lg mb-2 animate-bounce-short flex justify-between items-center';
+        const mainEl = document.querySelector('main');
+        mainEl.insertBefore(rushBanner, mainEl.firstChild);
+    }
+
+    startPersonEndgameTimer();
+    runEndgameTurn();
+}
+
+function startPersonEndgameTimer() {
+    if (endgameTimer) clearInterval(endgameTimer);
+    endgameTimeLeft = 90; // 每个人独立重置为 90 秒
+    
+    endgameTimer = setInterval(() => {
+        endgameTimeLeft--;
+        updateEndgameBannerText();
+        
+        if (endgameTimeLeft <= 0) {
+            clearInterval(endgameTimer);
+            setNotice("⏱️ 您的 90 秒已到，自动过轮！");
+            // 个人时间到，直接强制切换到下一个人的 90 秒回合
+            advanceEndgameTurn();
+        }
+    }, 1000);
+}
+
+function updateEndgameBannerText() {
+    const banner = document.getElementById('endgameRushBanner');
+    if (!banner) return;
+    const currentWho = endgameOrder[endgameCurrentIndex];
+    const nameMap = { 0: "玩家", 1: "机器人1", 2: "机器人2" };
+    const roundCount = endgameCurrentIndex + 1;
+    banner.innerHTML = `<span>🔥 终局限时冲刺 (第${roundCount}/3轮)</span> <span class="bg-black/30 px-2 py-0.5 rounded">当前：${nameMap[currentWho]}</span> <span class="text-amber-300 font-mono text-sm">⏱️ ${endgameTimeLeft}s</span>`;
+}
+
+function runEndgameTurn() {
+    if (isGameOver) return;
+    updateEndgameBannerText();
+    
+    const activePlayerId = endgameOrder[endgameCurrentIndex];
+    turn = activePlayerId; // 同步当前回合控制权
+    updateUI();
+
+    if (activePlayerId === 0) {
+        setNotice("⚡ 终局冲刺：轮到你了！请限时出牌！");
+    } else if (activePlayerId === 1) {
+        setNotice("⚡ 终局冲刺：机器人1 正在疯狂出牌...");
+        // 调整延迟至 1500ms（1.5秒），让机器人动作连贯且有节奏感
+        setTimeout(() => executeEndgameAiTurn(1), 1500);
+    } else if (activePlayerId === 2) {
+        setNotice("⚡ 终局冲刺：机器人2 正在疯狂出牌...");
+        setTimeout(() => executeEndgameAiTurn(2), 1500);
+    }
+}
+
+function executeEndgameAiTurn(aiId) {
+    if (isGameOver || !isEndgameRush) return;
+    let aiHand = aiId === 1 ? ai1Hand : ai2Hand;
+    let name = aiId === 1 ? "机器人1" : "机器人2";
+
+    // 确保 AI 在终局冲刺时已破冰，可以无限制出牌和拼接
+    if (aiId === 1) ai1HasBrokenIce = true;
+    if (aiId === 2) ai2HasBrokenIce = true;
+
+    let playedSomething = false;
+
+    // 终局智能连续出牌循环（最多尝试打出多组或拼接多张牌）
+    for (let attempt = 0; attempt < 6; attempt++) {
+        let actionTaken = false;
+
+        // 1. 优先尝试：在终局中无条件寻找手牌能组成的新顺子或刻子
+        let bestPlay = findBestPlay(aiHand, true);
+        if (bestPlay) {
+            aiHand = aiHand.filter(c => !bestPlay.cards.includes(c));
+            tableGroups.push(bestPlay.cards);
+            actionTaken = true;
+            playedSomething = true;
+        } else {
+            // 2. 次要尝试：把单张手牌塞到桌面上已有牌组的头部或尾部
+            for (let hIdx = 0; hIdx < aiHand.length; hIdx++) {
+                const card = aiHand[hIdx];
+                let attached = false;
+                for (let gIdx = 0; gIdx < tableGroups.length; gIdx++) {
+                    const testGroup = [...tableGroups[gIdx], card];
+                    if (validateGroup(testGroup).valid) {
+                        tableGroups[gIdx].push(card);
+                        aiHand.splice(hIdx, 1);
+                        attached = true;
+                        actionTaken = true;
+                        playedSomething = true;
+                        break;
+                    }
+                }
+                if (attached) break; 
+            }
+        }
+
+        if (!actionTaken) break; // 如果实在没牌可出了就跳出循环
+    }
+
+    // 将更新后的手牌写回对应 AI
+    if (aiId === 1) ai1Hand = aiHand; else ai2Hand = aiHand;
+
+    if (playedSomething) {
+        playSound('play');
+        autoSortAllTableGroups();
+        setNotice(`⚡ 终局冲刺：${name} 成功打出或拼接了卡牌！`);
+    } else {
+        setNotice(`⚡ 终局冲刺：${name} 本回合手牌无法出牌`);
+    }
+
+    // 检查 AI 是否清空了手牌
+    if (aiHand.length === 0) {
+        if (endgameTimer) clearInterval(endgameTimer);
+        handleGameOver(name + " (终局清空手牌)");
+        return;
+    }
+
+    updateUI();
+    
+    // 稍作停顿后自动推进到下一个人的90秒回合
+    setTimeout(() => {
+        advanceEndgameTurn();
+    }, 1200);
+}
+
+function advanceEndgameTurn() {
+    if (isGameOver || !isEndgameRush) return;
+    if (endgameTimer) clearInterval(endgameTimer);
+
+    endgameCurrentIndex++;
+    // 如果 3 个人（索引 0, 1, 2）各 90 秒全部结束了一次
+    if (endgameCurrentIndex >= endgameOrder.length) {
+        isEndgameRush = false;
+        handleEndgameTimeout(); // 三人各90秒完成，比拼手牌最少结算
+        return;
+    }
+
+    // 开启下一个人的 90 秒
+    startPersonEndgameTimer();
+    runEndgameTurn();
+}
+
+function handleEndgameTimeout() {
+    if (isGameOver) return;
+    if (endgameTimer) clearInterval(endgameTimer);
+    
+    // 时间到，比较剩余手牌最少者获胜
+    const pLen = playerHand.length;
+    const ai1Len = ai1Hand.length;
+    const ai2Len = ai2Hand.length;
+
+    let minLen = Math.min(pLen, ai1Len, ai2Len);
+    let winners = [];
+    if (pLen === minLen) winners.push("玩家");
+    if (ai1Len === minLen) winners.push("机器人1");
+    if (ai2Len === minLen) winners.push("机器人2");
+
+    let winnerText = winners.join(" & ") + "";
+    handleGameOver(winnerText);
+}
+
     </script>
 </body>
 </html>
