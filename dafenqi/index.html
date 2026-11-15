@@ -524,6 +524,7 @@ function renderAll() {
                 document.getElementById('action-hint').innerHTML = `你的初始手牌已全部选好，正在等待对手完成初始选牌...`;
             }
         } else {
+                document.getElementById('player-hand-tip').innerText = `蓝左黄右，数字递增（普通牌不可随意移动）`;
             if (heldCard) {
                 document.getElementById('action-hint').innerHTML = `
                     你拿回了一张卡牌（${heldCard.color === 'blue' ? '蓝色' : '黄色'}）。请点击上方对手的卡牌猜测！
