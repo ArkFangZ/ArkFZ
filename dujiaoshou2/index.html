@@ -54,6 +54,11 @@
 </head>
 <body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 sm:p-6">
 
+<!-- 全局小提示横幅 (Toast) -->
+<div id="toast-banner" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-slate-800/95 dark:bg-white/95 text-white dark:text-slate-900 text-xs font-bold shadow-xl border border-slate-700/50 dark:border-slate-200 hidden items-center gap-2 animate-pop">
+    <span id="toast-text">提示信息</span>
+</div>
+
 <!-- 顶部标题栏 -->
 <header class="w-full max-w-3xl flex items-center justify-between mb-2 sm:mb-4">
     <div class="flex items-center gap-3">
@@ -96,7 +101,7 @@
 
     <div>
         <label class="block text-xs font-semibold text-slate-400 mb-1">你的昵称：</label>
-        <input type="text" id="player-nickname" placeholder="例如：独角兽高手" value="独角兽高手" class="w-full p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-pink-400">
+        <input type="text" id="player-nickname" placeholder="输入你的昵称" class="w-full p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-pink-400">
     </div>
 
     <div class="space-y-3 pt-1 sm:pt-2">
@@ -127,17 +132,26 @@
         <div class="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-800 border border-rose-400/30">
             <span class="text-xs font-bold text-rose-500">🔴 玩家 1 (红)</span>
             <span id="slot-name-p1" class="text-xs font-bold text-slate-700 dark:text-slate-200">空缺</span>
-            <button id="btn-select-p1" onclick="claimSlot('p1')" class="px-2.5 py-1 bg-rose-500 text-white rounded-lg text-[10px] font-bold">选择</button>
+            <div class="flex items-center gap-1">
+                <button id="btn-select-p1" onclick="claimSlot('p1')" class="px-2.5 py-1 bg-rose-500 text-white rounded-lg text-[10px] font-bold">选择</button>
+                <button id="btn-kick-p1" onclick="kickSlot('p1')" class="hidden px-2 py-1 bg-slate-200 dark:bg-slate-700 hover:bg-red-500 hover:text-white text-slate-600 dark:text-slate-300 rounded-lg text-[10px] font-bold transition">踢出</button>
+            </div>
         </div>
         <div class="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-800 border border-blue-400/30">
             <span class="text-xs font-bold text-blue-500">🔵 玩家 2 (蓝)</span>
             <span id="slot-name-p2" class="text-xs font-bold text-slate-700 dark:text-slate-200">空缺</span>
-            <button id="btn-select-p2" onclick="claimSlot('p2')" class="px-2.5 py-1 bg-blue-500 text-white rounded-lg text-[10px] font-bold">选择</button>
+            <div class="flex items-center gap-1">
+                <button id="btn-select-p2" onclick="claimSlot('p2')" class="px-2.5 py-1 bg-blue-500 text-white rounded-lg text-[10px] font-bold">选择</button>
+                <button id="btn-kick-p2" onclick="kickSlot('p2')" class="hidden px-2 py-1 bg-slate-200 dark:bg-slate-700 hover:bg-red-500 hover:text-white text-slate-600 dark:text-slate-300 rounded-lg text-[10px] font-bold transition">踢出</button>
+            </div>
         </div>
         <div class="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-800 border border-emerald-400/30">
             <span class="text-xs font-bold text-emerald-500">🟢 玩家 3 (绿)</span>
             <span id="slot-name-p3" class="text-xs font-bold text-slate-700 dark:text-slate-200">空缺</span>
-            <button id="btn-select-p3" onclick="claimSlot('p3')" class="px-2.5 py-1 bg-emerald-500 text-white rounded-lg text-[10px] font-bold">选择</button>
+            <div class="flex items-center gap-1">
+                <button id="btn-select-p3" onclick="claimSlot('p3')" class="px-2.5 py-1 bg-emerald-500 text-white rounded-lg text-[10px] font-bold">选择</button>
+                <button id="btn-kick-p3" onclick="kickSlot('p3')" class="hidden px-2 py-1 bg-slate-200 dark:bg-slate-700 hover:bg-red-500 hover:text-white text-slate-600 dark:text-slate-300 rounded-lg text-[10px] font-bold transition">踢出</button>
+            </div>
         </div>
     </div>
 
@@ -307,7 +321,33 @@ function initTheme() {
     });
 }
 
+// --- 小提示横幅 (Toast) ---
+let toastTimer = null;
+function showToast(text) {
+    const banner = document.getElementById('toast-banner');
+    const textEl = document.getElementById('toast-text');
+    textEl.innerText = text;
+    banner.classList.remove('hidden');
+    banner.classList.add('flex');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        banner.classList.add('hidden');
+        banner.classList.remove('flex');
+    }, 3500);
+}
+
 // --- 游戏核心变量 ---
+const MY_CLIENT_ID = 'client_' + Math.random().toString(36).substring(2, 10);
+
+function generateRandomNickname() {
+    const adjs = ['暴富', '快乐', '摸鱼', '幸运', '神秘', '优雅', '闪电', '躺平', '商业', '无敌'];
+    const nouns = ['独角兽', '大亨', '资本家', '小马驹', '铺毯工', '包租公', '锦鲤', '星辰'];
+    const adj = adjs[Math.floor(Math.random() * adjs.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    const num = Math.floor(100 + Math.random() * 900);
+    return `${adj}${noun}#${num}`;
+}
+
 const SIZE = 7;
 let boardData = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null).map(() => []));
 let unicorn = { x: 3, y: 3, dir: 0 };
@@ -319,9 +359,9 @@ let myRole = 'p1';
 let currentRoomCode = '';
 
 let roomSlots = {
-    p1: { type: 'empty', name: '空缺' },
-    p2: { type: 'empty', name: '空缺' },
-    p3: { type: 'empty', name: '空缺' }
+    p1: { type: 'empty', name: '空缺', clientId: '' },
+    p2: { type: 'empty', name: '空缺', clientId: '' },
+    p3: { type: 'empty', name: '空缺', clientId: '' }
 };
 
 let players = {
@@ -366,13 +406,19 @@ function returnToMainMenu() {
     currentPlayer = playerKeys[0];
     gameState = 'MOVE_SELECT';
     selectedCells = [];
+    isHost = false;
+    myRole = '';
     
     players = {
       p1: { coins: 30, carpets: 15, name: '玩家 1' },
       p2: { coins: 30, carpets: 15, name: '玩家 2' },
       p3: { coins: 30, carpets: 15, name: '玩家 3' }
     };
-    roomSlots = { p1: { type: 'empty', name: '空缺' }, p2: { type: 'empty', name: '空缺' }, p3: { type: 'empty', name: '空缺' } };
+    roomSlots = { 
+        p1: { type: 'empty', name: '空缺', clientId: '' }, 
+        p2: { type: 'empty', name: '空缺', clientId: '' }, 
+        p3: { type: 'empty', name: '空缺', clientId: '' } 
+    };
     
     const logEl = document.getElementById('log');
     if (logEl) logEl.innerHTML = '';
@@ -395,9 +441,9 @@ function showCreateRoomView() {
     currentRoomCode = Math.floor(100000 + Math.random() * 900000).toString();
     
     roomSlots = {
-        p1: { type: 'player', name: nickname },
-        p2: { type: 'empty', name: '空缺' },
-        p3: { type: 'empty', name: '空缺' }
+        p1: { type: 'player', name: nickname, clientId: MY_CLIENT_ID },
+        p2: { type: 'empty', name: '空缺', clientId: '' },
+        p3: { type: 'empty', name: '空缺', clientId: '' }
     };
 
     connectMQTTAndJoinLobby(true);
@@ -426,6 +472,7 @@ function connectMQTTAndJoinLobby(isCreating) {
     const topic = `unicorn_room_v6digit_${currentRoomCode}`;
 
     let roomVerified = false;
+    let hasSentJoin = false;
 
     mqttClient.on('connect', () => {
         if (!mqttClient) return;
@@ -452,9 +499,12 @@ function connectMQTTAndJoinLobby(isCreating) {
             const msg = JSON.parse(payload.toString());
             if (msg.type === 'PONG_ROOM' && !isCreating) {
                 roomVerified = true;
-                switchView('view-room-lobby');
-                const nickname = document.getElementById('player-nickname').value.trim() || '玩家';
-                sendNetworkMsg('JOIN_ROOM', { nickname });
+                if (!hasSentJoin) {
+                    hasSentJoin = true;
+                    switchView('view-room-lobby');
+                    const nickname = document.getElementById('player-nickname').value.trim() || '玩家';
+                    sendNetworkMsg('JOIN_ROOM', { nickname, clientId: MY_CLIENT_ID });
+                }
             } else {
                 roomVerified = true;
                 handleLobbyNetworkMsg(msg);
@@ -466,7 +516,7 @@ function connectMQTTAndJoinLobby(isCreating) {
 function sendNetworkMsg(type, data, senderOverride = null) {
     if (mqttClient && mqttClient.connected) {
         const activeSender = senderOverride || myRole;
-        const activeName = senderOverride ? players[senderOverride].name : document.getElementById('player-nickname').value;
+        const activeName = (senderOverride && players[senderOverride]) ? players[senderOverride].name : document.getElementById('player-nickname').value;
         mqttClient.publish(`unicorn_room_v6digit_${currentRoomCode}`, JSON.stringify({ 
             sender: activeSender, 
             senderName: activeName, 
@@ -477,18 +527,76 @@ function sendNetworkMsg(type, data, senderOverride = null) {
 }
 
 function claimSlot(roleKey) {
+    if (roomSlots[roleKey].type !== 'empty') return;
     const nickname = document.getElementById('player-nickname').value.trim() || '玩家';
     for (let k of playerKeys) {
-        if (roomSlots[k].type === 'player' && roomSlots[k].name === nickname) {
-            roomSlots[k] = { type: 'empty', name: '空缺' };
+        if (roomSlots[k].type === 'player' && roomSlots[k].clientId === MY_CLIENT_ID) {
+            roomSlots[k] = { type: 'empty', name: '空缺', clientId: '' };
         }
     }
-    roomSlots[roleKey] = { type: 'player', name: nickname };
+    roomSlots[roleKey] = { type: 'player', name: nickname, clientId: MY_CLIENT_ID };
     myRole = roleKey;
 
     if (isHost) broadcastRoomState();
-    else sendNetworkMsg('UPDATE_SLOTS', { roomSlots, assignedRole: roleKey });
+    else sendNetworkMsg('UPDATE_SLOTS', { roomSlots });
     updateLobbyUI();
+}
+
+// 房主踢出指定槽位（真人或机器人）
+function kickSlot(roleKey) {
+    if (!isHost) return;
+    const targetSlot = roomSlots[roleKey];
+    if (!targetSlot || targetSlot.type === 'empty') return;
+    if (targetSlot.clientId === MY_CLIENT_ID) return; // 不能踢自己
+
+    const kickedClientId = targetSlot.clientId;
+    const kickedName = targetSlot.name;
+    roomSlots[roleKey] = { type: 'empty', name: '空缺', clientId: '' };
+
+    broadcastRoomState();
+    if (kickedClientId) {
+        sendNetworkMsg('KICK_PLAYER', { targetClientId: kickedClientId });
+    }
+    showToast(`已将 ${kickedName} 移出房间`);
+    updateLobbyUI();
+}
+
+function updateLobbyUI() {
+    playerKeys.forEach(k => {
+        const slot = roomSlots[k];
+        const nameEl = document.getElementById(`slot-name-${k}`);
+        const btnSelect = document.getElementById(`btn-select-${k}`);
+        const btnKick = document.getElementById(`btn-kick-${k}`);
+
+        nameEl.innerText = slot.name;
+        if (slot.type === 'empty') {
+            btnSelect.classList.remove('hidden');
+            btnSelect.innerText = '选择';
+            btnKick.classList.add('hidden');
+        } else if (slot.type === 'ai') {
+            btnSelect.classList.add('hidden');
+            if (isHost) btnKick.classList.remove('hidden');
+            else btnKick.classList.add('hidden');
+        } else {
+            btnSelect.classList.add('hidden');
+            if (slot.clientId === MY_CLIENT_ID) {
+                nameEl.innerText += isHost ? ' (你·房主)' : ' (你)';
+                myRole = k;
+                btnKick.classList.add('hidden');
+            } else {
+                if (isHost) btnKick.classList.remove('hidden');
+                else btnKick.classList.add('hidden');
+            }
+        }
+    });
+
+    if (isHost) {
+        document.getElementById('btn-start-game').classList.remove('hidden');
+        document.getElementById('btn-fill-ai').classList.remove('hidden');
+    } else {
+        document.getElementById('btn-start-game').classList.add('hidden');
+        document.getElementById('btn-fill-ai').classList.add('hidden');
+    }
 }
 
 function broadcastRoomState() {
@@ -499,19 +607,47 @@ function handleLobbyNetworkMsg(msg) {
     if (msg.type === 'PING_ROOM' && isHost) {
         sendNetworkMsg('PONG_ROOM', { roomSlots });
     } else if (msg.type === 'JOIN_ROOM' && isHost) {
+        // 1. 去重检查：如果这个 clientId 已经在房间槽位里了，直接返回他原来的位置，绝不重复分配！
+        let existingRole = '';
+        for (let k of playerKeys) {
+            if (roomSlots[k].type === 'player' && roomSlots[k].clientId === msg.data.clientId) {
+                existingRole = k;
+                roomSlots[k].name = msg.data.nickname; // 顺便更新最新昵称
+                break;
+            }
+        }
+
+        if (existingRole) {
+            broadcastRoomState();
+            sendNetworkMsg('ASSIGN_ROLE', { targetClientId: msg.data.clientId, assignedRole: existingRole, roomSlots });
+            return;
+        }
+
+        // 2. 如果是全新玩家，找第一个空位分配
         let assigned = '';
         for (let k of playerKeys) {
             if (roomSlots[k].type === 'empty') {
-                roomSlots[k] = { type: 'player', name: msg.data.nickname };
+                roomSlots[k] = { type: 'player', name: msg.data.nickname, clientId: msg.data.clientId };
                 assigned = k;
                 break;
             }
         }
+
+        // 3. 广播最新槽位，并通知新玩家分配结果（如果没空位，assigned 为空字符串，代表房间已满）
         broadcastRoomState();
-        sendNetworkMsg('ASSIGN_ROLE', { assignedRole: assigned, roomSlots });
+        sendNetworkMsg('ASSIGN_ROLE', { targetClientId: msg.data.clientId, assignedRole: assigned, roomSlots });
+
     } else if (msg.type === 'ASSIGN_ROLE' && !isHost) {
         roomSlots = msg.data.roomSlots;
-        if (msg.data.assignedRole) myRole = msg.data.assignedRole;
+        if (msg.data.targetClientId === MY_CLIENT_ID) {
+            if (msg.data.assignedRole) {
+                myRole = msg.data.assignedRole;
+            } else {
+                alert('该房间人数已满！');
+                returnToMainMenu();
+                return;
+            }
+        }
         updateLobbyUI();
     } else if (msg.type === 'UPDATE_SLOTS' && isHost) {
         roomSlots = msg.data.roomSlots;
@@ -519,17 +655,52 @@ function handleLobbyNetworkMsg(msg) {
     } else if (msg.type === 'ROOM_SYNC') {
         roomSlots = msg.data.roomSlots;
         updateLobbyUI();
+    } else if (msg.type === 'KICK_PLAYER') {
+        if (msg.data.targetClientId === MY_CLIENT_ID) {
+            alert('你已被房主移出房间！');
+            returnToMainMenu();
+        }
+    } else if (msg.type === 'LEAVE_ROOM') {
+        // 房主收到其他玩家退出通知时，清空对应槽位并同步
+        if (isHost && msg.data.clientId !== MY_CLIENT_ID) {
+            for (let k of playerKeys) {
+                if (roomSlots[k].clientId === msg.data.clientId) {
+                    showToast(`${roomSlots[k].name} 退出了房间`);
+                    roomSlots[k] = { type: 'empty', name: '空缺', clientId: '' };
+                }
+            }
+            broadcastRoomState();
+            updateLobbyUI();
+        }
+    } else if (msg.type === 'HOST_TRANSFER') {
+        // 收到房主转移通知
+        roomSlots = msg.data.roomSlots;
+        if (msg.data.newHostClientId === MY_CLIENT_ID) {
+            isHost = true;
+            showToast('👑 原房主已退出，你成为了新房主！');
+        } else {
+            showToast(`👑 ${msg.data.newHostName} 成为了新房主`);
+        }
+        updateLobbyUI();
+        // 如果正在对局中且轮到机器人，新房主接管 AI 行动
+        if (!document.getElementById('view-game').classList.contains('hidden')) {
+            checkTurnStart();
+        }
     } else if (msg.type === 'START_GAME') {
-        if (isHost) return; // 房主已在本地初始化，忽略网络回传的消息
+        if (isHost) return;
         players = msg.data.players;
         roomSlots = msg.data.roomSlots;
+        for (let k of playerKeys) {
+            if (roomSlots[k] && roomSlots[k].clientId === MY_CLIENT_ID) {
+                myRole = k;
+            }
+        }
         resetGameStateOnly();
         setupGameUI();
     } else if (msg.type === 'PLAY_AGAIN') {
-        if (isHost) return; // 房主已在本地重置，忽略网络回传的消息
+        if (isHost) return;
         resetGameStateOnly();
         setupGameUI();
-    
     } else if (msg.type === 'ACTION_ROLL') {
         if (msg.sender !== myRole) {
             if (isHost && roomSlots[msg.sender] && roomSlots[msg.sender].type === 'ai' && gameState !== 'MOVE_SELECT') {
@@ -594,47 +765,18 @@ function toggleAIFill() {
     if (!isHost) return;
     for (let k of playerKeys) {
         if (roomSlots[k].type === 'empty') {
-            roomSlots[k] = { type: 'ai', name: `机器人(${k.toUpperCase()})` };
+            roomSlots[k] = { type: 'ai', name: `机器人(${k.toUpperCase()})`, clientId: '' };
         }
     }
     broadcastRoomState();
     updateLobbyUI();
 }
 
-function updateLobbyUI() {
-    playerKeys.forEach(k => {
-        const slot = roomSlots[k];
-        const nameEl = document.getElementById(`slot-name-${k}`);
-        const btnEl = document.getElementById(`btn-select-${k}`);
-        
-        nameEl.innerText = slot.name;
-        if (slot.type === 'empty') {
-            btnEl.classList.remove('hidden');
-            btnEl.innerText = '选择';
-        } else if (slot.type === 'ai') {
-            btnEl.classList.add('hidden');
-        } else {
-            if (slot.name === (document.getElementById('player-nickname').value.trim())) {
-                btnEl.classList.add('hidden');
-                nameEl.innerText += ' (你)';
-                myRole = k;
-            } else {
-                btnEl.classList.add('hidden');
-            }
-        }
-    });
-
-    if (isHost) {
-        document.getElementById('btn-start-game').classList.remove('hidden');
-        document.getElementById('btn-fill-ai').classList.remove('hidden');
-    }
-}
-
 function hostStartMultiGame() {
     if (!isHost) return;
     playerKeys.forEach(k => {
         if (roomSlots[k].type === 'empty') {
-            roomSlots[k] = { type: 'ai', name: `机器人(${k.toUpperCase()})` };
+            roomSlots[k] = { type: 'ai', name: `机器人(${k.toUpperCase()})`, clientId: '' };
         }
         players[k] = { coins: 30, carpets: 15, name: roomSlots[k].name };
     });
@@ -644,9 +786,66 @@ function hostStartMultiGame() {
     setupGameUI();
 }
 
+// 玩家退出房间：清空自身位置，若自己是房主则随机移交给其他真人玩家
 function leaveRoom() {
-    returnToMainMenu();
+    if (mqttClient && mqttClient.connected) {
+        // 先清空自己在槽位里的占用
+        for (let k of playerKeys) {
+            if (roomSlots[k].clientId === MY_CLIENT_ID) {
+                roomSlots[k] = { type: 'empty', name: '空缺', clientId: '' };
+            }
+        }
+
+        if (isHost) {
+            // 筛选房间里剩下的其他真人玩家
+            const otherHumans = playerKeys
+                .map(k => roomSlots[k])
+                .filter(slot => slot.type === 'player' && slot.clientId && slot.clientId !== MY_CLIENT_ID);
+
+            if (otherHumans.length > 0) {
+                const nextHost = otherHumans[Math.floor(Math.random() * otherHumans.length)];
+                sendNetworkMsg('HOST_TRANSFER', {
+                    newHostClientId: nextHost.clientId,
+                    newHostName: nextHost.name,
+                    roomSlots
+                });
+            }
+        } else {
+            sendNetworkMsg('LEAVE_ROOM', { clientId: MY_CLIENT_ID });
+        }
+    }
+
+    // 略微延迟 100ms 断开 MQTT，确保退出/转移消息成功发出
+    setTimeout(() => {
+        returnToMainMenu();
+    }, 100);
 }
+
+// 关闭浏览器标签页或刷新时也尽量通知房间
+window.addEventListener('beforeunload', () => {
+    if (mqttClient && mqttClient.connected) {
+        for (let k of playerKeys) {
+            if (roomSlots[k].clientId === MY_CLIENT_ID) {
+                roomSlots[k] = { type: 'empty', name: '空缺', clientId: '' };
+            }
+        }
+        if (isHost) {
+            const otherHumans = playerKeys
+                .map(k => roomSlots[k])
+                .filter(slot => slot.type === 'player' && slot.clientId && slot.clientId !== MY_CLIENT_ID);
+            if (otherHumans.length > 0) {
+                const nextHost = otherHumans[Math.floor(Math.random() * otherHumans.length)];
+                sendNetworkMsg('HOST_TRANSFER', {
+                    newHostClientId: nextHost.clientId,
+                    newHostName: nextHost.name,
+                    roomSlots
+                });
+            }
+        } else {
+            sendNetworkMsg('LEAVE_ROOM', { clientId: MY_CLIENT_ID });
+        }
+    }
+});
 
 function setupGameUI() {
     switchView('view-game');
@@ -972,16 +1171,13 @@ function aiExecuteCarpet(aiKey) {
     }
   }
 
-if (validPairs.length > 0) {
+  if (validPairs.length > 0) {
     const choice = validPairs[Math.floor(Math.random() * validPairs.length)];
     validateAndPlaceCarpet(choice[0], choice[1], aiKey);
-    
-    // 【新增】如果是房主，把机器人铺地毯的动作广播给其他联机玩家
     if (isHost) {
       sendNetworkMsg('ACTION_CARPET', { pos1: choice[0], pos2: choice[1] }, aiKey);
     }
-    
-    endTurn(); // 确保铺完后切到下一回合
+    endTurn();
   } else {
     log(`${players[aiKey].name} 无合法位置可铺，跳过`);
     endTurn();
@@ -1065,6 +1261,7 @@ function checkGameOver() {
 
 window.onload = () => {
     initTheme();
+    document.getElementById('player-nickname').value = generateRandomNickname();
 };
 </script>
 </body>
