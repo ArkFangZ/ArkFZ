@@ -376,6 +376,8 @@ let currentPlayer = playerKeys[currentPlayerIndex];
 let gameState = 'MOVE_SELECT';
 let selectedCells = [];
 let allowedRange = 1;
+let turnCounter = 0; // 回合唯一编号，防止网络延迟或机器人重复触发
+let activeStepInterval = null; //动画定时器
 
 let mqttClient = null;
 
@@ -701,18 +703,25 @@ function handleLobbyNetworkMsg(msg) {
         if (isHost) return;
         resetGameStateOnly();
         setupGameUI();
-    } else if (msg.type === 'ACTION_ROLL') {
+} else if (msg.type === 'ACTION_ROLL') {
         if (msg.sender !== myRole) {
-            if (isHost && roomSlots[msg.sender] && roomSlots[msg.sender].type === 'ai' && gameState !== 'MOVE_SELECT') {
-                return;
-            }
+            if (msg.data.turnId && msg.data.turnId <= turnCounter) return;
             document.getElementById('dir-input').value = msg.data.actionChoice;
-            executeTurnWithSteps(msg.data.actionChoice, msg.data.steps);
+            executeTurnWithSteps(msg.data);
         }
     } else if (msg.type === 'ACTION_CARPET') {
         if (msg.sender !== myRole) {
-            if (isHost && roomSlots[msg.sender] && roomSlots[msg.sender].type === 'ai' && gameState !== 'CARPET_SELECT') {
-                return;
+            if (activeStepInterval) {
+                clearInterval(activeStepInterval);
+                activeStepInterval = null;
+            }
+            if (msg.data.syncUnicorn) {
+                unicorn = { ...msg.data.syncUnicorn };
+            }
+            if (msg.data.syncCoins) {
+                players.p1.coins = msg.data.syncCoins.p1;
+                players.p2.coins = msg.data.syncCoins.p2;
+                players.p3.coins = msg.data.syncCoins.p3;
             }
             if (validateAndPlaceCarpet(msg.data.pos1, msg.data.pos2, msg.sender)) {
                 endTurn();
@@ -722,12 +731,17 @@ function handleLobbyNetworkMsg(msg) {
 }
 
 function resetGameStateOnly() {
+    if (activeStepInterval) {
+	clearInterval(activeStepInterval);
+	activeStepInterval = null;
+    }
     boardData = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null).map(() => []));
     unicorn = { x: 3, y: 3, dir: 0 };
     currentPlayerIndex = 0;
     currentPlayer = playerKeys[0];
     gameState = 'MOVE_SELECT';
     selectedCells = [];
+    turnCounter = 0;
     
     playerKeys.forEach(k => {
         players[k].coins = 30;
@@ -953,54 +967,107 @@ function moveUnicornStep() {
   }
 }
 
+function simulateMovePath(startX, startY, startDir, actionChoice, steps) {
+  unicorn.x = startX;
+  unicorn.y = startY;
+  unicorn.dir = startDir;
+
+  if (actionChoice === 'left') unicorn.dir = (unicorn.dir + 3) % 4;
+  else if (actionChoice === 'right') unicorn.dir = (unicorn.dir + 1) % 4;
+
+  let path = [];
+  for (let i = 0; i < steps; i++) {
+    moveUnicornStep();
+    path.push({ x: unicorn.x, y: unicorn.y, dir: unicorn.dir });
+  }
+  return path;
+}
+
 document.getElementById('roll-btn').addEventListener('click', () => {
   if (gameState !== 'MOVE_SELECT' || currentPlayer !== myRole) return;
   
   const actionChoice = document.getElementById('dir-input').value;
   const steps = Math.floor(Math.random() * 4) + 1;
+  turnCounter++;
 
-  sendNetworkMsg('ACTION_ROLL', { actionChoice, steps });
-  executeTurnWithSteps(actionChoice, steps);
+  const payload = {
+    turnId: turnCounter,
+    startX: unicorn.x,
+    startY: unicorn.y,
+    startDir: unicorn.dir,
+    actionChoice,
+    steps
+  };
+
+  sendNetworkMsg('ACTION_ROLL', payload);
+  executeTurnWithSteps(payload);
 });
 
-function executeTurnWithSteps(actionChoice, steps) {
+function executeTurnWithSteps(data) {
+  const { turnId, startX, startY, startDir, actionChoice, steps } = data;
+  if (turnId) turnCounter = turnId;
+
+  if (activeStepInterval) {
+    clearInterval(activeStepInterval);
+    activeStepInterval = null;
+  }
+
   let actionText = "直行";
-  if (actionChoice === 'left') { unicorn.dir = (unicorn.dir + 3) % 4; actionText = "向左转"; }
-  else if (actionChoice === 'right') { unicorn.dir = (unicorn.dir + 1) % 4; actionText = "向右转"; }
+  if (actionChoice === 'left') actionText = "向左转";
+  else if (actionChoice === 'right') actionText = "向右转";
 
   log(`${players[currentPlayer].name} 选择了【${actionText}】，掷出了 <b>${steps}</b> 点！`);
 
   document.getElementById('roll-btn').disabled = true;
   gameState = 'ANIMATING';
 
+  const path = simulateMovePath(startX, startY, startDir, actionChoice, steps);
+  unicorn.x = startX;
+  unicorn.y = startY;
+  unicorn.dir = startDir;
+  render();
+
   let currentStep = 0;
-  let stepInterval = setInterval(() => {
-    if (currentStep < steps) {
-      moveUnicornStep();
+  activeStepInterval = setInterval(() => {
+    if (currentStep < path.length) {
+      unicorn.x = path[currentStep].x;
+      unicorn.y = path[currentStep].y;
+      unicorn.dir = path[currentStep].dir;
       render();
       playSound('move');
       currentStep++;
     } else {
-      clearInterval(stepInterval);
-      checkRent();
-      gameState = 'CARPET_SELECT';
-      
-      allowedRange = hasValidPairsInBox(1) ? 1 : 2;
-      if (allowedRange === 1) {
-        document.getElementById('action-hint').innerText = "步骤：请在九宫格内选择 2 个相邻格子铺地毯";
-      } else {
-        document.getElementById('action-hint').innerText = "⚠️ 九宫格无解！已扩展至 5x5 范围";
-      }
-      highlightValidCarpetOptions();
-
-      const slotType = roomSlots[currentPlayer].type;
-      if (slotType === 'ai' && isHost) {
-        setTimeout(() => aiExecuteCarpet(currentPlayer), 1000);
-      } else if (currentPlayer !== myRole) {
-        document.getElementById('action-hint').innerText = `等待 ${players[currentPlayer].name} 铺地毯...`;
-      }
+      clearInterval(activeStepInterval);
+      activeStepInterval = null;
+      finishMovePhase();
     }
-  }, 500);
+  }, 400);
+}
+
+function finishMovePhase() {
+  if (gameState !== 'ANIMATING') return;
+  checkRent();
+  gameState = 'CARPET_SELECT';
+
+  allowedRange = hasValidPairsInBox(1) ? 1 : 2;
+  if (allowedRange === 1) {
+    document.getElementById('action-hint').innerText = "步骤：请在九宫格内选择 2 个相邻格子铺地毯";
+  } else {
+    document.getElementById('action-hint').innerText = "⚠️ 九宫格无解！已扩展至 5x5 范围";
+  }
+  highlightValidCarpetOptions();
+
+  const slotType = roomSlots[currentPlayer].type;
+  if (slotType === 'ai' && isHost) {
+    const lockedTurnId = turnCounter;
+    setTimeout(() => {
+      if (gameState === 'CARPET_SELECT' && turnCounter === lockedTurnId && roomSlots[currentPlayer].type === 'ai') {
+        aiExecuteCarpet(currentPlayer);
+      }
+    }, 900);
+  } else if (currentPlayer !== myRole) {
+    document.getElementById('action-hint').innerText = `等待 ${players[currentPlayer].name} 铺地毯...`;
+  }
 }
 
 function checkRent() {
@@ -1106,8 +1173,15 @@ function handleCellClick(x, y) {
     if (Math.abs(first.x - x) + Math.abs(first.y - y) === 1 && validRangeRule) {
       const pos1 = selectedCells[0], pos2 = {x, y};
       if (validateAndPlaceCarpet(pos1, pos2, myRole)) {
-        sendNetworkMsg('ACTION_CARPET', { pos1, pos2 });
+        sendNetworkMsg('ACTION_CARPET', { 
+          turnId: turnCounter,
+          pos1, 
+          pos2,
+          syncUnicorn: { ...unicorn },
+          syncCoins: { p1: players.p1.coins, p2: players.p2.coins, p3: players.p3.coins }
+        });
         endTurn();
+      
       } else {
         resetSelection();
       }
@@ -1175,7 +1249,13 @@ function aiExecuteCarpet(aiKey) {
     const choice = validPairs[Math.floor(Math.random() * validPairs.length)];
     validateAndPlaceCarpet(choice[0], choice[1], aiKey);
     if (isHost) {
-      sendNetworkMsg('ACTION_CARPET', { pos1: choice[0], pos2: choice[1] }, aiKey);
+      sendNetworkMsg('ACTION_CARPET', { 
+        turnId: turnCounter,
+        pos1: choice[0], 
+        pos2: choice[1],
+        syncUnicorn: { ...unicorn },
+        syncCoins: { p1: players.p1.coins, p2: players.p2.coins, p3: players.p3.coins }
+      }, aiKey);
     }
     endTurn();
   } else {
@@ -1211,14 +1291,28 @@ function checkTurnStart() {
   document.getElementById('action-hint').innerText = isSlotAI ? `🤖 ${players[currentPlayer].name} 思考中...` : (isMyTurn ? "步骤：请选择策略并掷骰子" : `等待 ${players[currentPlayer].name} 操作...`);
 
   if (isSlotAI && isHost) {
+    const lockedTurnId = turnCounter;
+    const aiKey = currentPlayer;
     setTimeout(() => {
+      if (gameState !== 'MOVE_SELECT' || turnCounter !== lockedTurnId || currentPlayer !== aiKey) return;
+
       const choices = ['forward', 'left', 'right'];
       const actionChoice = choices[Math.floor(Math.random() * choices.length)];
       document.getElementById('dir-input').value = actionChoice;
       const steps = Math.floor(Math.random() * 4) + 1;
+      turnCounter++;
+
+      const payload = {
+        turnId: turnCounter,
+        startX: unicorn.x,
+        startY: unicorn.y,
+        startDir: unicorn.dir,
+        actionChoice,
+        steps
+      };
       
-      sendNetworkMsg('ACTION_ROLL', { actionChoice, steps }, currentPlayer); 
-      executeTurnWithSteps(actionChoice, steps);
+      sendNetworkMsg('ACTION_ROLL', payload, aiKey); 
+      executeTurnWithSteps(payload);
     }, 1000);
   }
 }
