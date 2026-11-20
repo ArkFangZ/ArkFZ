@@ -467,7 +467,9 @@
         let endgameCurrentIndex = 0;    // 当前在终局顺序中的第几个人
 
         let turnSnapshot = null;
+        let lastValidSnapshot = null; // 记录本回合内最近一次桌面完全合法的快照
         let initialTableCardsCount = 0; // 记录本轮开始时桌面牌的总张数
+        let initialTableGroupsCount = 0; // 补全缺失的初始桌面组数变量
         let draggedCard = null;
         let draggedFrom = null;
 
@@ -485,6 +487,13 @@
             turn = 0;
             turnSnapshot = null;
             hasDrawnThisTurn = false;
+            isEndgameRush = false;
+            if (endgameTimer) {
+                clearInterval(endgameTimer);
+                endgameTimer = null;
+            }
+            const oldBanner = document.getElementById('endgameRushBanner');
+            if (oldBanner) oldBanner.remove();
 
             document.getElementById('topRestartBtn').classList.add('hidden');
             document.getElementById('victoryModal').classList.add('hidden');
@@ -520,14 +529,39 @@
         }
 
         function saveTurnSnapshot() {
+            tableGroups.forEach(g => g.forEach(c => {
+                c.isOldTableCard = true;
+                c.isCurrentTurnPlayed = false;
+            }));
             turnSnapshot = {
                 playerHand: JSON.parse(JSON.stringify(playerHand)),
                 tableGroups: JSON.parse(JSON.stringify(tableGroups))
             };
+            lastValidSnapshot = JSON.parse(JSON.stringify(turnSnapshot));
             initialTableCardsCount = getTotalTableCardsCount(tableGroups);
+            initialTableGroupsCount = tableGroups.length;
         }
 
         function updateUI() {
+           // 玩家回合中，只要当前桌面所有牌组都合法（且已满足破冰条件），就自动保存为最新合法快照
+            if (turn === 0 && !isGameOver && turnSnapshot) {
+                const nonEmptyGroups = tableGroups.filter(g => g.length > 0);
+                const allValidNow = nonEmptyGroups.every(g => g.length >= 3 && validateGroup(g).valid);
+                let iceOkNow = playerHasBrokenIce;
+                if (!iceOkNow && allValidNow) {
+                    let pts = 0;
+                    nonEmptyGroups.forEach(g => {
+                        if (g.some(c => c.isCurrentTurnPlayed)) pts += validateGroup(g).sum;
+                    });
+                    if (pts >= 30) iceOkNow = true;
+                }
+                if (allValidNow && iceOkNow && getTotalTableCardsCount(nonEmptyGroups) >= initialTableCardsCount) {
+                    lastValidSnapshot = {
+                        playerHand: JSON.parse(JSON.stringify(playerHand)),
+                        tableGroups: JSON.parse(JSON.stringify(nonEmptyGroups))
+                    };
+                }
+            }
             document.getElementById('deckCount').innerText = deck.length;
             document.getElementById('ai1CardCount').innerText = ai1Hand.length;
             document.getElementById('ai2CardCount').innerText = ai2Hand.length;
@@ -595,12 +629,7 @@
                         return;
                     }
 
-                    const sourceGroup = tableGroups[draggedFrom.groupIndex];
-                    sourceGroup.splice(draggedFrom.cardIndex, 1);
-                    if (sourceGroup.length === 0) {
-                        tableGroups.splice(draggedFrom.groupIndex, 1);
-                    }
-
+                    removeFromSource(draggedFrom);
                     draggedCard.isCurrentTurnPlayed = false;
                     playerHand.push(draggedCard);
                     playSound('select');
@@ -622,6 +651,14 @@
                 e.preventDefault();
                 unifiedBoard.classList.remove('drop-target');
                 if (!draggedCard || turn !== 0 || isGameOver) return;
+
+                if (!playerHasBrokenIce && draggedCard.isOldTableCard) {
+                    setNotice("❌ 未破冰前，不能移动桌面上原有的旧牌！");
+                    draggedCard = null;
+                    draggedFrom = null;
+                    updateUI();
+                    return;
+                }
 
                 if (draggedFrom && draggedFrom.type === 'hand') {
                     draggedCard.isCurrentTurnPlayed = true;
@@ -766,16 +803,20 @@
         }
 
         function removeFromSource(fromInfo) {
-            if (!fromInfo) return;
+            if (!fromInfo || !draggedCard) return;
             if (fromInfo.type === 'hand') {
-                playerHand.splice(fromInfo.cardIndex, 1);
+                const realIdx = playerHand.indexOf(draggedCard);
+                if (realIdx !== -1) playerHand.splice(realIdx, 1);
                 selectedHandIndices.clear();
             } else if (fromInfo.type === 'table') {
-                const sourceGroup = tableGroups[fromInfo.groupIndex];
-                if (sourceGroup && sourceGroup[fromInfo.cardIndex]) {
-                    sourceGroup.splice(fromInfo.cardIndex, 1);
-                    if (sourceGroup.length === 0) {
-                        tableGroups.splice(fromInfo.groupIndex, 1);
+                for (let g = 0; g < tableGroups.length; g++) {
+                    const cIdx = tableGroups[g].indexOf(draggedCard);
+                    if (cIdx !== -1) {
+                        tableGroups[g].splice(cIdx, 1);
+                        if (tableGroups[g].length === 0) {
+                            tableGroups.splice(g, 1);
+                        }
+                        break;
                     }
                 }
             }
@@ -791,6 +832,8 @@
         function handleDragEnd(e) {
             e.currentTarget.classList.remove('dragging');
             document.querySelectorAll('.card-group, #unifiedBoard').forEach(el => el.classList.remove('drop-target'));
+            draggedCard = null;
+            draggedFrom = null;
         }
 
         function handleDragOver(e, groupEl) {
@@ -808,16 +851,27 @@
             e.stopPropagation();
             if (!draggedCard || turn !== 0 || isGameOver) return;
 
-            if (!playerHasBrokenIce && targetGroupIdx !== -1 && targetGroupIdx < initialTableCardsCount) {
-                setNotice("❌ 未破冰前，不能将牌加入桌面上原有的牌组中！必须自己独立打出新牌组。");
-                draggedCard = null;
-                draggedFrom = null;
-                updateUI();
-                return;
+            const targetGroup = targetGroupIdx !== -1 ? tableGroups[targetGroupIdx] : null;
+            // 未破冰时，检查目标组里是否包含桌面旧牌，以及是否试图移动桌面旧牌
+            if (!playerHasBrokenIce) {
+                if (draggedCard.isOldTableCard) {
+                    setNotice("❌ 未破冰前，不能移动桌面上原有的旧牌！");
+                    draggedCard = null;
+                    draggedFrom = null;
+                    updateUI();
+                    return;
+                }
+                if (targetGroup && targetGroup.some(c => c.isOldTableCard)) {
+                    setNotice("❌ 未破冰前，不能将牌加入桌面上原有的牌组中！必须自己独立打出新牌组。");
+                    draggedCard = null;
+                    draggedFrom = null;
+                    updateUI();
+                    return;
+                }
             }
 
             let insertIndex = -1;
-            if (targetGroupIdx !== -1) {
+            if (targetGroup) {
                 const groupEl = e.currentTarget;
                 const cardNodes = Array.from(groupEl.querySelectorAll('.rummi-card'));
                 const mouseX = e.clientX;
@@ -831,14 +885,22 @@
                         break;
                     }
                 }
+                // 如果是同一组内从前往后拖，移除原牌后目标下标需减 1
+                const oldIdxInTarget = targetGroup.indexOf(draggedCard);
+                if (oldIdxInTarget !== -1 && oldIdxInTarget < insertIndex) {
+                    insertIndex--;
+                }
+            }
+
+            if (draggedFrom && draggedFrom.type === 'hand') {
+                draggedCard.isCurrentTurnPlayed = true;
             }
 
             removeFromSource(draggedFrom);
 
-            if (targetGroupIdx === -1) {
+            if (!targetGroup) {
                 tableGroups.push([draggedCard]);
             } else {
-                const targetGroup = tableGroups[targetGroupIdx];
                 if (insertIndex >= 0 && insertIndex <= targetGroup.length) {
                     targetGroup.splice(insertIndex, 0, draggedCard);
                 } else {
@@ -949,14 +1011,22 @@
 
             if (!playerHasBrokenIce) {
                 let newlyPlayedPoints = 0;
+                let mixedWithOldCards = false;
                 tableGroups.forEach(g => {
                     const hasTurnCard = g.some(c => c.isCurrentTurnPlayed);
                     if (hasTurnCard) {
+                        if (g.some(c => c.isOldTableCard)) {
+                            mixedWithOldCards = true;
+                        }
                         const res = validateGroup(g);
                         newlyPlayedPoints += res.sum;
                     }
                 });
 
+                if (mixedWithOldCards) {
+                    setNotice("❌ 破冰失败：未破冰前不可与桌面上原有的旧牌组合！");
+                    return;
+                }
                 if (newlyPlayedPoints < 30) {
                     setNotice(`❌ 破冰失败：本轮牌组仅为 ${newlyPlayedPoints} 分，不足 30 分！`);
                     return;
@@ -969,7 +1039,7 @@
 
             if (playerHand.length === 0) {
                 if (endgameTimer) clearInterval(endgameTimer);
-                handleGameOver("玩家 (终局清空手牌)");
+                handleGameOver("玩家");
                 return;
             }
 
@@ -996,6 +1066,10 @@
             hasDrawnThisTurn = true;
 
             if (turnSnapshot && (playerHand.length !== turnSnapshot.playerHand.length || JSON.stringify(tableGroups) !== JSON.stringify(turnSnapshot.tableGroups))) {
+                if (!confirm("本轮已出过牌或移动过桌面卡牌，选择“摸牌”将撤回本轮操作，确定吗？")) {
+                    hasDrawnThisTurn = false;
+                    return;
+                }
                 playerHand = JSON.parse(JSON.stringify(turnSnapshot.playerHand));
                 tableGroups = JSON.parse(JSON.stringify(turnSnapshot.tableGroups));
             }
@@ -1057,22 +1131,24 @@
                 played = true;
                 setNotice(`${name} 打出了一组新卡牌！`);
             } else if (hasBrokenIce) {
-                for (let hIdx = 0; hIdx < aiHand.length; hIdx++) {
-                    const card = aiHand[hIdx];
-                    let attached = false;
-
-                    for (let gIdx = 0; gIdx < tableGroups.length; gIdx++) {
-                        const testGroup = [...tableGroups[gIdx], card];
-                        if (validateGroup(testGroup).valid) {
-                            tableGroups[gIdx].push(card);
-                            aiHand.splice(hIdx, 1);
-                            attached = true;
-                            played = true;
-                            setNotice(`${name} 将手牌拼接到了桌面上！`);
-                            break;
+                let keepAttaching = true;
+                while (keepAttaching) {
+                    keepAttaching = false;
+                    for (let hIdx = 0; hIdx < aiHand.length; hIdx++) {
+                        const card = aiHand[hIdx];
+                        for (let gIdx = 0; gIdx < tableGroups.length; gIdx++) {
+                            const testGroup = [...tableGroups[gIdx], card];
+                            if (validateGroup(testGroup).valid) {
+                                tableGroups[gIdx].push(card);
+                                aiHand.splice(hIdx, 1);
+                                played = true;
+                                keepAttaching = true;
+                                setNotice(`${name} 将手牌拼接到了桌面上！`);
+                                break;
+                            }
                         }
+                        if (keepAttaching) break;
                     }
-                    if (attached) break;
                 }
             }
 
@@ -1106,9 +1182,25 @@
             for (let i = 0; i < handCards.length; i++) {
                 for (let j = i + 1; j < handCards.length; j++) {
                     for (let k = j + 1; k < handCards.length; k++) {
-                        const candidate = [handCards[i], handCards[j], handCards[k]];
-                        const res = validateGroup(candidate);
+                        let candidate = [handCards[i], handCards[j], handCards[k]];
+                        let res = validateGroup(candidate);
                         if (res.valid) {
+                            // 尝试继续扩展第 4、5 张牌（例如 4 连顺或 4 张刻子）
+                            let expanded = true;
+                            while (expanded) {
+                                expanded = false;
+                                for (let m = 0; m < handCards.length; m++) {
+                                    if (candidate.includes(handCards[m])) continue;
+                                    const nextCand = [...candidate, handCards[m]];
+                                    const nextRes = validateGroup(nextCand);
+                                    if (nextRes.valid) {
+                                        candidate = nextCand;
+                                        res = nextRes;
+                                        expanded = true;
+                                        break;
+                                    }
+                                }
+                            }
                             if (!hasBrokenIce && res.sum < 30) continue;
                             return { cards: candidate, sum: res.sum };
                         }
@@ -1124,6 +1216,7 @@
 
         function handleGameOver(winnerName) {
             isGameOver = true;
+            updateUI();
             playSound('win');
             document.getElementById('winnerTitle').innerText = `${winnerName} 获得胜利！`;
             
@@ -1245,7 +1338,7 @@
             if (!draggedCard || turn !== 0 || isGameOver) return;
             
             if (draggedFrom && draggedFrom.type === 'table') {
-                if (!playerHasBrokenIce && draggedFrom.groupIndex < initialTableGroupsCount) {
+                if (!playerHasBrokenIce && draggedCard.isOldTableCard) {
                     setNotice("❌ 未破冰前，不能从桌面上原有的牌组中拿走牌！");
                     draggedCard = null;
                     draggedFrom = null;
@@ -1260,14 +1353,7 @@
                     return;
                 }
 
-                const sourceGroup = tableGroups[draggedFrom.groupIndex];
-                if (sourceGroup) {
-                    sourceGroup.splice(draggedFrom.cardIndex, 1);
-                    if (sourceGroup.length === 0) {
-                        tableGroups.splice(draggedFrom.groupIndex, 1);
-                    }
-                }
-
+                removeFromSource(draggedFrom);
                 draggedCard.isCurrentTurnPlayed = false;
                 playerHand.push(draggedCard);
                 playSound('select');
@@ -1280,6 +1366,14 @@
 
         function handleDropToUnifiedBoard() {
             if (!draggedCard || turn !== 0 || isGameOver) return;
+
+            if (!playerHasBrokenIce && draggedCard.isOldTableCard) {
+                setNotice("❌ 未破冰前，不能移动桌面上原有的旧牌！");
+                draggedCard = null;
+                draggedFrom = null;
+                updateUI();
+                return;
+            }
             
             if (draggedFrom && draggedFrom.type === 'hand') {
                 draggedCard.isCurrentTurnPlayed = true;
@@ -1295,19 +1389,37 @@
 
         function executeDropToGroup(targetGroupIdx, insertIndex) {
             if (!draggedCard || turn !== 0 || isGameOver) return;
-            if (!playerHasBrokenIce && targetGroupIdx !== -1 && targetGroupIdx < initialTableGroupsCount) {
-                setNotice("❌ 未破冰前，不能将牌加入桌面上原有的牌组中！必须自己独立打出新牌组。");
-                draggedCard = null;
-                draggedFrom = null;
-                updateUI();
-                return;
+            const targetGroup = targetGroupIdx !== -1 ? tableGroups[targetGroupIdx] : null;
+
+            if (!playerHasBrokenIce) {
+                if (draggedCard.isOldTableCard) {
+                    setNotice("❌ 未破冰前，不能移动桌面上原有的旧牌！");
+                    draggedCard = null;
+                    draggedFrom = null;
+                    updateUI();
+                    return;
+                }
+                if (targetGroup && targetGroup.some(c => c.isOldTableCard)) {
+                    setNotice("❌ 未破冰前，不能将牌加入桌面上原有的牌组中！必须自己独立打出新牌组。");
+                    draggedCard = null;
+                    draggedFrom = null;
+                    updateUI();
+                    return;
+                }
             }
+
+            if (targetGroup) {
+                const oldIdxInTarget = targetGroup.indexOf(draggedCard);
+                if (oldIdxInTarget !== -1 && oldIdxInTarget < insertIndex) {
+                    insertIndex--;
+                }
+            }
+
             if (draggedFrom && draggedFrom.type === 'hand') {
                 draggedCard.isCurrentTurnPlayed = true;
             }
 
             removeFromSource(draggedFrom);
-            const targetGroup = tableGroups[targetGroupIdx];
             if (targetGroup) {
                 if (insertIndex >= 0 && insertIndex <= targetGroup.length) {
                     targetGroup.splice(insertIndex, 0, draggedCard);
@@ -1362,7 +1474,50 @@
                 
                 if (endgameTimeLeft <= 0) {
                     clearInterval(endgameTimer);
-                    setNotice("⏱️ 您的 90 秒已到，自动过轮！");
+                    if (endgameOrder[endgameCurrentIndex] === 0) {
+                        // 1. 过滤空组，检查超时那一刻桌面是否全部合法
+                        tableGroups = tableGroups.filter(g => g.length > 0);
+                        const allValidAtTimeout = tableGroups.every(g => g.length >= 3 && validateGroup(g).valid);
+                        let iceOkAtTimeout = playerHasBrokenIce;
+                        if (!iceOkAtTimeout && allValidAtTimeout) {
+                            let pts = 0;
+                            tableGroups.forEach(g => {
+                                if (g.some(c => c.isCurrentTurnPlayed)) pts += validateGroup(g).sum;
+                            });
+                            if (pts >= 30) iceOkAtTimeout = true;
+                        }
+
+                        if (allValidAtTimeout && iceOkAtTimeout) {
+                            if (getTotalTableCardsCount(tableGroups) > initialTableCardsCount) {
+                                playerHasBrokenIce = true;
+                                setNotice("⏱️ 90 秒已到，已自动保留您打出的合法牌组！");
+                            } else {
+                                setNotice("⏱️ 90 秒已到，本轮未出牌，自动过轮！");
+                            }
+                        } else if (lastValidSnapshot) {
+                            // 桌面存在未拼完的非法组：回退到本轮最近一次合法状态（保住前面出掉的合法牌，只退回后面乱掉的牌）
+                            playerHand = JSON.parse(JSON.stringify(lastValidSnapshot.playerHand));
+                            tableGroups = JSON.parse(JSON.stringify(lastValidSnapshot.tableGroups));
+                            if (getTotalTableCardsCount(tableGroups) > initialTableCardsCount) {
+                                playerHasBrokenIce = true;
+                            }
+                            setNotice("⏱️ 90 秒已到，已保留合法出牌，未拼完的牌退回手牌！");
+                        }
+
+                        autoSortAllTableGroups();
+                        tableGroups.forEach(g => g.forEach(c => {
+                            c.isCurrentTurnPlayed = false;
+                            c.isOldTableCard = true;
+                        }));
+                        selectedHandIndices.clear();
+                        updateUI();
+
+                        // 如果合法出牌刚好清空了手牌，直接判定胜利
+                        if (playerHand.length === 0) {
+                            handleGameOver("玩家 (终局清空手牌)");
+                            return;
+                        }
+                    }
                     advanceEndgameTurn();
                 }
             }, 1000);
@@ -1386,6 +1541,7 @@
             updateUI();
 
             if (activePlayerId === 0) {
+                saveTurnSnapshot();
                 setNotice("⚡ 终局冲刺：轮到你了！请限时出牌！");
             } else if (activePlayerId === 1) {
                 setNotice("⚡ 终局冲刺：机器人1 正在疯狂出牌...");
