@@ -296,7 +296,7 @@
             </div>
 
             <!-- 桌面主组区域 -->
-            <div id="unifiedBoard" class="flex-1 p-2 rounded-2xl bg-slate-50/50 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/50 overflow-y-auto min-h-[160px]">
+            <div id="unifiedBoard" class="flex-1 p-2 rounded-2xl bg-slate-50/50 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/50 overflow-y-auto min-h-[160px] touch-none">
                 <div id="boardGroupsContainer" class="flex flex-wrap gap-3 content-start min-h-[140px]"></div>
             </div>
         </div>
@@ -604,91 +604,24 @@
                 }
                 cardEl.onclick = () => toggleSelectCard(index);
 
-                cardEl.draggable = isMyTurn;
-                cardEl.ondragstart = (e) => handleDragStart(e, card, { type: 'hand', cardIndex: index });
-                cardEl.ondragend = handleDragEnd;
-                bindTouchDrag(cardEl, card, { type: 'hand', cardIndex: index });
+                bindUniversalDrag(cardEl, card, { type: 'hand', cardIndex: index });
 
                 handContainer.appendChild(cardEl);
             });
 
-            // 手牌区域接收拖放（收回本轮打出的牌）
-            const handPanel = document.getElementById('playerHandPanel');
-            handPanel.ondragover = (e) => { e.preventDefault(); handPanel.classList.add('ring-2', 'ring-blue-400'); };
-            handPanel.ondragleave = () => handPanel.classList.remove('ring-2', 'ring-blue-400');
-            handPanel.ondrop = (e) => {
-                e.preventDefault();
-                handPanel.classList.remove('ring-2', 'ring-blue-400');
-                if (!draggedCard || turn !== 0 || isGameOver) return;
-                
-                if (draggedFrom && draggedFrom.type === 'table') {
-                    if (!draggedCard.isCurrentTurnPlayed) {
-                        setNotice("❌ 不能将战场旧牌（非本轮打出的牌）拉回手牌！");
-                        draggedCard = null;
-                        draggedFrom = null;
-                        return;
-                    }
-
-                    removeFromSource(draggedFrom);
-                    draggedCard.isCurrentTurnPlayed = false;
-                    playerHand.push(draggedCard);
-                    playSound('select');
-                    draggedCard = null;
-                    draggedFrom = null;
-                    updateUI();
-                    setNotice("已将本轮出牌收回到手牌");
-                }
-            };
-
             // 公共牌桌区域
             const boardContainer = document.getElementById('boardGroupsContainer');
             boardContainer.innerHTML = '';
-
-            const unifiedBoard = document.getElementById('unifiedBoard');
-            unifiedBoard.ondragover = (e) => { e.preventDefault(); unifiedBoard.classList.add('drop-target'); };
-            unifiedBoard.ondragleave = () => unifiedBoard.classList.remove('drop-target');
-            unifiedBoard.ondrop = (e) => {
-                e.preventDefault();
-                unifiedBoard.classList.remove('drop-target');
-                if (!draggedCard || turn !== 0 || isGameOver) return;
-
-                if (!playerHasBrokenIce && draggedCard.isOldTableCard) {
-                    setNotice("❌ 未破冰前，不能移动桌面上原有的旧牌！");
-                    draggedCard = null;
-                    draggedFrom = null;
-                    updateUI();
-                    return;
-                }
-
-                if (draggedFrom && draggedFrom.type === 'hand') {
-                    draggedCard.isCurrentTurnPlayed = true;
-                }
-                removeFromSource(draggedFrom);
-                tableGroups.push([draggedCard]);
-                playSound('play');
-                draggedCard = null;
-                draggedFrom = null;
-                updateUI();
-            };
 
             tableGroups.forEach((group, gIdx) => {
                 const groupEl = document.createElement('div');
                 const isGroupValid = validateGroup(group).valid;
                 // 去除灰色虚线，仅保留非合法时的红色错误高亮框
                 groupEl.className = `card-group ${(!isGroupValid && isMyTurn) ? 'invalid-group' : ''}`;
-                
-                groupEl.ondragover = (e) => handleDragOver(e, groupEl);
-                groupEl.ondragleave = (e) => handleDragLeave(e, groupEl);
-                groupEl.ondrop = (e) => handleDrop(e, gIdx);
 
                 group.forEach((card, cIdx) => {
                     const cardEl = createCardDom(card, false);
-                    if (isMyTurn) {
-                        cardEl.draggable = true;
-                        cardEl.ondragstart = (e) => handleDragStart(e, card, { type: 'table', groupIndex: gIdx, cardIndex: cIdx });
-                        cardEl.ondragend = handleDragEnd;
-                    }
-                    bindTouchDrag(cardEl, card, { type: 'table', groupIndex: gIdx, cardIndex: cIdx });
+                    bindUniversalDrag(cardEl, card, { type: 'table', groupIndex: gIdx, cardIndex: cIdx });
                     groupEl.appendChild(cardEl);
                 });
 
@@ -822,98 +755,7 @@
             }
         }
 
-        function handleDragStart(e, card, fromInfo) {
-            draggedCard = card;
-            draggedFrom = fromInfo;
-            e.currentTarget.classList.add('dragging');
-            e.dataTransfer.setData('text/plain', JSON.stringify(card));
-        }
-
-        function handleDragEnd(e) {
-            e.currentTarget.classList.remove('dragging');
-            document.querySelectorAll('.card-group, #unifiedBoard').forEach(el => el.classList.remove('drop-target'));
-            draggedCard = null;
-            draggedFrom = null;
-        }
-
-        function handleDragOver(e, groupEl) {
-            e.preventDefault();
-            groupEl.classList.add('drop-target');
-        }
-
-        function handleDragLeave(e, groupEl) {
-            groupEl.classList.remove('drop-target');
-        }
-
-        // 精确定位与吸附：将卡牌插入到目标组的任意指定位置
-        function handleDrop(e, targetGroupIdx) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!draggedCard || turn !== 0 || isGameOver) return;
-
-            const targetGroup = targetGroupIdx !== -1 ? tableGroups[targetGroupIdx] : null;
-            // 未破冰时，检查目标组里是否包含桌面旧牌，以及是否试图移动桌面旧牌
-            if (!playerHasBrokenIce) {
-                if (draggedCard.isOldTableCard) {
-                    setNotice("❌ 未破冰前，不能移动桌面上原有的旧牌！");
-                    draggedCard = null;
-                    draggedFrom = null;
-                    updateUI();
-                    return;
-                }
-                if (targetGroup && targetGroup.some(c => c.isOldTableCard)) {
-                    setNotice("❌ 未破冰前，不能将牌加入桌面上原有的牌组中！必须自己独立打出新牌组。");
-                    draggedCard = null;
-                    draggedFrom = null;
-                    updateUI();
-                    return;
-                }
-            }
-
-            let insertIndex = -1;
-            if (targetGroup) {
-                const groupEl = e.currentTarget;
-                const cardNodes = Array.from(groupEl.querySelectorAll('.rummi-card'));
-                const mouseX = e.clientX;
-
-                insertIndex = cardNodes.length;
-                for (let i = 0; i < cardNodes.length; i++) {
-                    const rect = cardNodes[i].getBoundingClientRect();
-                    const midX = rect.left + rect.width / 2;
-                    if (mouseX < midX) {
-                        insertIndex = i;
-                        break;
-                    }
-                }
-                // 如果是同一组内从前往后拖，移除原牌后目标下标需减 1
-                const oldIdxInTarget = targetGroup.indexOf(draggedCard);
-                if (oldIdxInTarget !== -1 && oldIdxInTarget < insertIndex) {
-                    insertIndex--;
-                }
-            }
-
-            if (draggedFrom && draggedFrom.type === 'hand') {
-                draggedCard.isCurrentTurnPlayed = true;
-            }
-
-            removeFromSource(draggedFrom);
-
-            if (!targetGroup) {
-                tableGroups.push([draggedCard]);
-            } else {
-                if (insertIndex >= 0 && insertIndex <= targetGroup.length) {
-                    targetGroup.splice(insertIndex, 0, draggedCard);
-                } else {
-                    targetGroup.push(draggedCard);
-                }
-            }
-
-            playSound('play');
-            draggedCard = null;
-            draggedFrom = null;
-            updateUI();
-        }
-
+        
         function createCardDom(card, isHand = false) {
             const el = document.createElement('div');
             el.className = `rummi-card ${isHand ? 'hand-card' : ''} ${card.isJoker ? 'joker' : 'card-' + card.color}`;
@@ -1243,70 +1085,107 @@
             setNotice("正在查看终局战局盘面");
         }
 
-        // 手机端触摸拖拽 (Touch Drag & Drop) 实现
-        let touchDragState = {
-            active: false,
+        // PC + 手机通用指针拖拽 (Pointer Events) 实现
+        let universalDragState = {
+            pressing: false,
+            dragging: false,
+            startX: 0,
+            startY: 0,
             card: null,
-            from: null
+            from: null,
+            sourceEl: null
         };
 
-        function bindTouchDrag(cardEl, card, fromInfo) {
-            cardEl.addEventListener('touchstart', (e) => {
+        function bindUniversalDrag(cardEl, card, fromInfo) {
+            cardEl.addEventListener('pointerdown', (e) => {
                 if (turn !== 0 || isGameOver) return;
-                const touch = e.touches[0];
-                touchDragState.active = true;
-                touchDragState.card = card;
-                touchDragState.from = fromInfo;
+                if (e.pointerType === 'mouse' && e.button !== 0) return; // 电脑端仅响应鼠标左键
 
+                universalDragState.pressing = true;
+                universalDragState.dragging = false;
+                universalDragState.startX = e.clientX;
+                universalDragState.startY = e.clientY;
+                universalDragState.card = card;
+                universalDragState.from = fromInfo;
+                universalDragState.sourceEl = cardEl;
+            });
+        }
+
+        // 全局监听移动与松开，确保鼠标/手指移出卡片范围依然流畅跟随
+        window.addEventListener('pointermove', (e) => {
+            if (!universalDragState.pressing) return;
+
+            // 移动超过 6px 才激活拖拽，避免轻点选牌时闪烁 Ghost
+            if (!universalDragState.dragging) {
+                const dx = e.clientX - universalDragState.startX;
+                const dy = e.clientY - universalDragState.startY;
+                if (Math.hypot(dx, dy) < 6) return;
+
+                universalDragState.dragging = true;
                 const ghost = document.getElementById('floating-drag-ghost');
-                ghost.className = cardEl.className;
-                ghost.innerHTML = cardEl.innerHTML;
+                ghost.className = universalDragState.sourceEl.className;
+                ghost.classList.remove('selected');
+                ghost.innerHTML = universalDragState.sourceEl.innerHTML;
                 ghost.style.display = 'flex';
-                ghost.style.left = touch.clientX + 'px';
-                ghost.style.top = touch.clientY + 'px';
+                universalDragState.sourceEl.style.opacity = '0.4';
+            }
 
-                cardEl.style.opacity = '0.4';
-                e.stopPropagation();
-            }, { passive: true });
+            const ghost = document.getElementById('floating-drag-ghost');
+            ghost.style.left = e.clientX + 'px';
+            ghost.style.top = e.clientY + 'px';
 
-            cardEl.addEventListener('touchmove', (e) => {
-                if (!touchDragState.active) return;
-                const touch = e.touches[0];
-                const ghost = document.getElementById('floating-drag-ghost');
-                ghost.style.left = touch.clientX + 'px';
-                ghost.style.top = touch.clientY + 'px';
+            const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+            document.querySelectorAll('.card-group, #unifiedBoard, #playerHandPanel').forEach(el => {
+                el.classList.remove('drop-target', 'ring-2', 'ring-blue-400');
+            });
 
-                const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-                document.querySelectorAll('.card-group, #unifiedBoard, #playerHandPanel').forEach(el => el.classList.remove('drop-target', 'ring-2', 'ring-blue-400'));
-                
-                const targetGroup = elemBelow ? elemBelow.closest('.card-group') : null;
-                const targetBoard = elemBelow ? elemBelow.closest('#unifiedBoard') : null;
-                const targetHand = elemBelow ? elemBelow.closest('#playerHandPanel') : null;
+            const targetGroup = elemBelow ? elemBelow.closest('.card-group') : null;
+            const targetBoard = elemBelow ? elemBelow.closest('#unifiedBoard') : null;
+            const targetHand = elemBelow ? elemBelow.closest('#playerHandPanel') : null;
 
-                if (targetGroup) targetGroup.classList.add('drop-target');
-                else if (targetBoard) targetBoard.classList.add('drop-target');
-                else if (targetHand) targetHand.classList.add('ring-2', 'ring-blue-400');
-            }, { passive: true });
+            if (targetGroup) targetGroup.classList.add('drop-target');
+            else if (targetBoard) targetBoard.classList.add('drop-target');
+            else if (targetHand) targetHand.classList.add('ring-2', 'ring-blue-400');
+        });
 
-            cardEl.addEventListener('touchend', (e) => {
-                if (!touchDragState.active) return;
-                touchDragState.active = false;
-                const ghost = document.getElementById('floating-drag-ghost');
-                ghost.style.display = 'none';
-                cardEl.style.opacity = '1';
+        function finishUniversalDrag(e) {
+            if (!universalDragState.pressing) return;
+            const wasDragging = universalDragState.dragging;
 
-                const touch = e.changedTouches[0];
-                const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-                document.querySelectorAll('.card-group, #unifiedBoard, #playerHandPanel').forEach(el => el.classList.remove('drop-target', 'ring-2', 'ring-blue-400'));
+            universalDragState.pressing = false;
+            universalDragState.dragging = false;
 
-                if (!elemBelow) return;
+            const ghost = document.getElementById('floating-drag-ghost');
+            ghost.style.display = 'none';
+            if (universalDragState.sourceEl) {
+                universalDragState.sourceEl.style.opacity = '1';
+            }
 
+            document.querySelectorAll('.card-group, #unifiedBoard, #playerHandPanel').forEach(el => {
+                el.classList.remove('drop-target', 'ring-2', 'ring-blue-400');
+            });
+
+            // 如果只是轻点（未拖动），交由卡片自身的 onclick 选中逻辑处理
+            if (!wasDragging) {
+                universalDragState.card = null;
+                universalDragState.from = null;
+                universalDragState.sourceEl = null;
+                return;
+            }
+
+            // 防止拖拽松开后误触发原卡片的 onclick 选中
+            if (universalDragState.sourceEl) {
+                universalDragState.sourceEl.onclick = null;
+            }
+
+            const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+            draggedCard = universalDragState.card;
+            draggedFrom = universalDragState.from;
+
+            if (elemBelow) {
                 const targetHand = elemBelow.closest('#playerHandPanel');
                 const targetGroup = elemBelow.closest('.card-group');
                 const targetBoard = elemBelow.closest('#unifiedBoard');
-
-                draggedCard = touchDragState.card;
-                draggedFrom = touchDragState.from;
 
                 if (targetHand) {
                     handleDropToHand();
@@ -1318,7 +1197,7 @@
                         let insertIndex = cardNodes.length;
                         for (let i = 0; i < cardNodes.length; i++) {
                             const rect = cardNodes[i].getBoundingClientRect();
-                            if (touch.clientX < rect.left + rect.width / 2) {
+                            if (e.clientX < rect.left + rect.width / 2) {
                                 insertIndex = i;
                                 break;
                             }
@@ -1328,11 +1207,17 @@
                 } else if (targetBoard) {
                     handleDropToUnifiedBoard();
                 }
+            }
 
-                draggedCard = null;
-                draggedFrom = null;
-            });
+            draggedCard = null;
+            draggedFrom = null;
+            universalDragState.card = null;
+            universalDragState.from = null;
+            universalDragState.sourceEl = null;
         }
+
+        window.addEventListener('pointerup', finishUniversalDrag);
+        window.addEventListener('pointercancel', finishUniversalDrag);
 
         function handleDropToHand() {
             if (!draggedCard || turn !== 0 || isGameOver) return;
